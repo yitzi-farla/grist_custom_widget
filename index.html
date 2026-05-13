@@ -6,171 +6,290 @@
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
       padding: 12px;
       font-size: 14px;
-      color: #222;
+      color: #1f2933;
+      background: #f6f7f9;
     }
 
-    h2, h3 {
+    h2, h3, h4 {
       margin: 0 0 8px;
     }
 
-    .section {
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f6f7f9;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
       margin-bottom: 12px;
-      background: #fff;
-    }
-
-    .muted {
-      color: #666;
     }
 
     .status {
       padding: 8px 10px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-      background: #f5f5f5;
+      border-radius: 8px;
+      margin-top: 8px;
+      background: #eef2f7;
     }
 
-    .ok {
-      background: #e7f6ec;
-      color: #0a6b2b;
-    }
+    .ok { background: #e7f6ec; color: #0a6b2b; }
+    .warn { background: #fff7df; color: #7a5600; }
+    .error { background: #fdecec; color: #a40000; }
 
-    .warn {
-      background: #fff7df;
-      color: #7a5600;
-    }
-
-    .error {
-      background: #fdecec;
-      color: #a40000;
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
     }
 
     button {
       padding: 8px 12px;
-      border-radius: 6px;
-      border: 1px solid #bbb;
-      background: #f7f7f7;
+      border-radius: 8px;
+      border: 1px solid #c6ccd3;
+      background: white;
       cursor: pointer;
-      margin-right: 6px;
-      margin-bottom: 6px;
+      font-weight: 600;
     }
 
     button.primary {
       background: #1f6feb;
-      color: white;
       border-color: #1f6feb;
+      color: white;
     }
 
     button.danger {
       background: #b42318;
-      color: white;
       border-color: #b42318;
+      color: white;
+    }
+
+    button.success {
+      background: #16833a;
+      border-color: #16833a;
+      color: white;
     }
 
     button:disabled {
-      opacity: 0.6;
+      opacity: 0.55;
       cursor: not-allowed;
     }
 
-    textarea {
+    .card {
+      border: 1px solid #d8dee4;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 7px 12px;
+    }
+
+    .label {
+      font-weight: 700;
+      color: #4b5563;
+    }
+
+    .muted {
+      color: #6b7280;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      margin: 2px 4px 2px 0;
+      font-size: 12px;
+    }
+
+    textarea, input {
       width: 100%;
-      min-height: 80px;
       box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 6px;
+      border: 1px solid #c6ccd3;
+      border-radius: 8px;
       padding: 8px;
       font-family: inherit;
       font-size: 14px;
+      background: white;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
     }
 
     pre {
       white-space: pre-wrap;
       word-break: break-word;
       background: #f6f8fa;
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 10px;
-      max-height: 360px;
+      max-height: 320px;
       overflow: auto;
+      border: 1px solid #e1e4e8;
     }
 
-    .grid {
+    .output-grid {
       display: grid;
-      grid-template-columns: 140px 1fr;
-      gap: 6px 10px;
+      grid-template-columns: 1fr;
+      gap: 8px;
     }
 
-    .label {
-      font-weight: 600;
-      color: #555;
+    .field-card {
+      border: 1px solid #e1e4e8;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+
+    .field-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #374151;
     }
 
     .score {
-      font-size: 22px;
-      font-weight: 700;
-    }
-
-    ul {
-      margin-top: 6px;
-      padding-left: 20px;
+      font-size: 28px;
+      font-weight: 800;
     }
 
     a {
       color: #1f6feb;
     }
+
+    details summary {
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 
 <body>
-  <h2>OpenRouter Product Enrichment</h2>
+  <div class="topbar">
+    <h2>OpenRouter Product Enrichment</h2>
 
-  <div id="status" class="status">Loading...</div>
+    <div class="row">
+      <button id="reloadBtn">Reload Rows</button>
+      <button id="prevBtn">← Previous</button>
+      <button id="nextBtn">Next →</button>
+      <span id="position" class="muted">No rows loaded</span>
+    </div>
 
-  <div class="section">
-    <h3>Selected Product</h3>
+    <div id="status" class="status">Loading...</div>
+  </div>
+
+  <div class="card">
+    <h3>Product Card</h3>
     <div class="grid">
       <div class="label">Group SKU</div>
-      <div id="groupSku" class="muted">-</div>
+      <div id="groupSku">-</div>
 
       <div class="label">Product</div>
-      <div id="productLabel" class="muted">-</div>
+      <div id="productLabel">-</div>
 
       <div class="label">Review Status</div>
-      <div id="reviewStatus" class="muted">-</div>
+      <div id="reviewStatus">-</div>
 
       <div class="label">AI Status</div>
-      <div id="aiStatus" class="muted">-</div>
+      <div id="aiStatus">-</div>
+
+      <div class="label">Needs Enrichment</div>
+      <div id="needsEnrichment">-</div>
+
+      <div class="label">Reason</div>
+      <div id="enrichmentReason">-</div>
 
       <div class="label">Variants</div>
-      <div id="variants" class="muted">-</div>
+      <div id="variants">-</div>
 
       <div class="label">Sources</div>
-      <div id="sources" class="muted">-</div>
+      <div id="sourceLinks">-</div>
     </div>
   </div>
 
-  <div class="section">
-    <h3>Actions</h3>
-    <button id="generateBtn" class="primary">Generate + QA Check</button>
-    <button id="approveBtn">Approve Result</button>
-    <button id="denyBtn" class="danger">Deny + Rerun With Comment</button>
+  <div class="card">
+    <h3>Source / Product Info</h3>
+    <details open>
+      <summary>Product Info</summary>
+      <pre id="productInfo">-</pre>
+    </details>
 
-    <p class="muted">
-      If denying, enter what is wrong or what the AI should change. The widget will resend the previous output, QA result, and your comment back to AI.
-    </p>
+    <details>
+      <summary>Naneth Research Data</summary>
+      <pre id="researchData">-</pre>
+    </details>
 
-    <textarea id="denyComment" placeholder="Example: Product name is too specific. Remove unsupported accuracy claim. Make bullets less medical."></textarea>
+    <details>
+      <summary>AI Prompt Sent</summary>
+      <pre id="aiPrompt">-</pre>
+    </details>
   </div>
 
-  <div class="section">
-    <h3>Generated Output</h3>
+  <div class="card">
+    <h3>Actions</h3>
+    <div class="row">
+      <button id="generateBtn" class="primary">Generate + QA Check</button>
+      <button id="approveBtn" class="success">Approve Result</button>
+      <button id="denyBtn" class="danger">Deny + Rerun With Comment</button>
+    </div>
+
+    <p class="muted">
+      Deny comment is sent back to AI with the previous output and QA result.
+    </p>
+
+    <textarea id="denyComment" placeholder="Example: Remove unsupported accuracy wording. Product name should stay closer to source. Specs need source support."></textarea>
+  </div>
+
+  <div class="card">
+    <h3>Current Final Output Fields</h3>
+    <div class="output-grid">
+      <div class="field-card">
+        <div class="field-title">FINAL_PRODUCT_NAME</div>
+        <div id="finalProductName" class="muted">-</div>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_LONG_DESCRIPTION</div>
+        <div id="finalLongDescription" class="muted">-</div>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_BULLETS</div>
+        <pre id="finalBullets">-</pre>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_SPECS</div>
+        <pre id="finalSpecs">-</pre>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_SOURCES</div>
+        <pre id="finalSources">-</pre>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_WARNINGS</div>
+        <pre id="finalWarnings">-</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Latest Generated Output</h3>
     <pre id="generationOutput">No generation yet.</pre>
   </div>
 
-  <div class="section">
+  <div class="card">
     <h3>QA / Trust Check</h3>
     <div id="qaSummary" class="muted">No QA result yet.</div>
     <pre id="qaOutput">No QA result yet.</pre>
@@ -190,91 +309,180 @@
       warnings: "FINAL_WARNINGS"
     };
 
+    let rows = [];
+    let currentIndex = 0;
     let currentRecord = null;
     let latestGeneration = null;
     let latestQa = null;
     let latestRunRowId = null;
 
-    grist.ready({
-      requiredAccess: "full"
-    });
+    grist.ready({ requiredAccess: "full" });
 
-    grist.onRecord(function(record) {
-      currentRecord = record;
+    document.getElementById("reloadBtn").addEventListener("click", loadRows);
+    document.getElementById("prevBtn").addEventListener("click", previousRow);
+    document.getElementById("nextBtn").addEventListener("click", nextRow);
+    document.getElementById("generateBtn").addEventListener("click", () => runFullAiFlow(""));
+    document.getElementById("denyBtn").addEventListener("click", denyAndRerun);
+    document.getElementById("approveBtn").addEventListener("click", approveCurrentResult);
+
+    loadRows();
+
+    async function loadRows() {
+      try {
+        setStatus("Loading product rows from Naneth_AI_Review...", "warn");
+
+        const table = await grist.docApi.fetchTable(PRODUCT_TABLE_ID);
+        rows = tableToRecords(table);
+
+        rows = rows.filter(row => {
+          return row.GROUP_SKU || row.PARENT_LABEL || row.PRODUCT_INFO || row.AI_PROMPT;
+        });
+
+        if (!rows.length) {
+          currentRecord = null;
+          renderCurrentRecord();
+          setStatus("No product rows found.", "error");
+          return;
+        }
+
+        const readyIndex = rows.findIndex(row =>
+          String(row.REVIEW_STATUS || "").toLowerCase().includes("ready") ||
+          row.NEEDS_ENRICHMENT === true
+        );
+
+        currentIndex = readyIndex >= 0 ? readyIndex : 0;
+        currentRecord = rows[currentIndex];
+
+        renderCurrentRecord();
+        setStatus(`Loaded ${rows.length} product rows.`, "ok");
+
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      }
+    }
+
+    function tableToRecords(table) {
+      const ids = table.id || [];
+      const colIds = Object.keys(table).filter(k => k !== "id");
+      const records = [];
+
+      for (let i = 0; i < ids.length; i++) {
+        const record = { id: ids[i] };
+
+        for (const colId of colIds) {
+          record[colId] = table[colId]?.[i];
+        }
+
+        records.push(record);
+      }
+
+      return records;
+    }
+
+    function previousRow() {
+      if (!rows.length) return;
+      currentIndex = Math.max(0, currentIndex - 1);
+      currentRecord = rows[currentIndex];
+      clearLatestResults();
+      renderCurrentRecord();
+    }
+
+    function nextRow() {
+      if (!rows.length) return;
+      currentIndex = Math.min(rows.length - 1, currentIndex + 1);
+      currentRecord = rows[currentIndex];
+      clearLatestResults();
+      renderCurrentRecord();
+    }
+
+    function clearLatestResults() {
       latestGeneration = null;
       latestQa = null;
       latestRunRowId = null;
+      document.getElementById("generationOutput").textContent = "No generation yet.";
+      document.getElementById("qaSummary").textContent = "No QA result yet.";
+      document.getElementById("qaOutput").textContent = "No QA result yet.";
+      document.getElementById("denyComment").value = "";
+    }
 
-      renderSelectedRecord(record);
+    function renderCurrentRecord() {
+      const record = currentRecord;
 
-      if (record) {
-        setStatus("Ready.", "ok");
-      } else {
-        setStatus("Select a product row.", "warn");
-      }
-    });
+      document.getElementById("position").textContent = rows.length
+        ? `Product ${currentIndex + 1} of ${rows.length}`
+        : "No rows loaded";
 
-    document.getElementById("generateBtn").addEventListener("click", async () => {
-      await runFullAiFlow("");
-    });
+      document.getElementById("prevBtn").disabled = !rows.length || currentIndex === 0;
+      document.getElementById("nextBtn").disabled = !rows.length || currentIndex === rows.length - 1;
 
-    document.getElementById("denyBtn").addEventListener("click", async () => {
-      const comment = document.getElementById("denyComment").value.trim();
-
-      if (!comment) {
-        setStatus("Add a denial/revision comment before rerunning.", "warn");
-        return;
-      }
-
-      await saveRejectMessage(comment);
-      await runFullAiFlow(comment);
-    });
-
-    document.getElementById("approveBtn").addEventListener("click", async () => {
-      await approveCurrentResult();
-    });
-
-    function renderSelectedRecord(record) {
       if (!record) {
-        document.getElementById("groupSku").textContent = "-";
-        document.getElementById("productLabel").textContent = "-";
-        document.getElementById("reviewStatus").textContent = "-";
-        document.getElementById("aiStatus").textContent = "-";
-        document.getElementById("variants").textContent = "-";
-        document.getElementById("sources").textContent = "-";
+        setText("groupSku", "-");
+        setText("productLabel", "-");
+        setText("reviewStatus", "-");
+        setText("aiStatus", "-");
+        setText("needsEnrichment", "-");
+        setText("enrichmentReason", "-");
+        setText("productInfo", "-");
+        setText("researchData", "-");
+        setText("aiPrompt", "-");
         return;
       }
 
-      document.getElementById("groupSku").textContent = record.GROUP_SKU || "-";
-      document.getElementById("productLabel").textContent =
-        record.PARENT_LABEL || record.PRODUCT_INFO || "-";
-      document.getElementById("reviewStatus").textContent = record.REVIEW_STATUS || "-";
-      document.getElementById("aiStatus").textContent = record.AI_STATUS || "-";
+      setText("groupSku", record.GROUP_SKU || "-");
+      setText("productLabel", record.PARENT_LABEL || extractTitle(record.PRODUCT_INFO) || "-");
+      setText("reviewStatus", record.REVIEW_STATUS || "-");
+      setText("aiStatus", record.AI_STATUS || "-");
+      setText("needsEnrichment", String(record.NEEDS_ENRICHMENT));
+      setText("enrichmentReason", record.ENRICHMENT_REASON || "-");
 
-      const variantsText =
-        record.VARIANT_SKUS ||
-        record.SUBVARIANT_SKUS ||
-        "";
+      renderVariants(record);
+      renderSources(record);
 
-      document.getElementById("variants").innerHTML = textLinesToHtml(variantsText);
+      setText("productInfo", record.PRODUCT_INFO || "-");
+      setText("researchData", record.NANETH_RESEARCH_DATA || "-");
+      setText("aiPrompt", record.AI_PROMPT || "-");
 
-      const sourceUrls = String(record.SOURCE_URLS || "")
+      setText("finalProductName", record.FINAL_PRODUCT_NAME || "-");
+      setText("finalLongDescription", record.FINAL_LONG_DESCRIPTION || "-");
+      setText("finalBullets", record.FINAL_BULLETS || "-");
+      setText("finalSpecs", record.FINAL_SPECS || "-");
+      setText("finalSources", record.FINAL_SOURCES || "-");
+      setText("finalWarnings", record.FINAL_WARNINGS || "-");
+    }
+
+    function renderVariants(record) {
+      const variantsText = record.VARIANT_SKUS || record.SUBVARIANT_SKUS || "";
+      const variants = String(variantsText)
         .split(/\r?\n/)
         .map(s => s.trim())
         .filter(Boolean);
 
-      document.getElementById("sources").innerHTML = sourceUrls.length
-        ? sourceUrls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`).join("")
+      document.getElementById("variants").innerHTML = variants.length
+        ? variants.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")
         : "-";
+    }
 
-      document.getElementById("generationOutput").textContent = "No generation yet.";
-      document.getElementById("qaSummary").textContent = "No QA result yet.";
-      document.getElementById("qaOutput").textContent = "No QA result yet.";
+    function renderSources(record) {
+      const urls = String(record.SOURCE_URLS || "")
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      document.getElementById("sourceLinks").innerHTML = urls.length
+        ? urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`).join("")
+        : "-";
+    }
+
+    function extractTitle(productInfo) {
+      const text = String(productInfo || "");
+      const match = text.match(/^Title:\s*(.+)$/m);
+      return match ? match[1].trim() : "";
     }
 
     async function runFullAiFlow(userRevisionComment) {
       if (!currentRecord) {
-        setStatus("No selected product row.", "error");
+        setStatus("No product row selected.", "error");
         return;
       }
 
@@ -290,7 +498,7 @@
           throw new Error("Missing OPENROUTER_API_KEY in Env table.");
         }
 
-        setStatus("Running initial AI generation...", "warn");
+        setStatus(`Running generation for ${currentRecord.GROUP_SKU || currentRecord.id}...`, "warn");
 
         latestGeneration = await runGenerationRequest({
           apiKey,
@@ -305,7 +513,7 @@
         document.getElementById("generationOutput").textContent =
           JSON.stringify(latestGeneration, null, 2);
 
-        setStatus("Running QA / source verification check...", "warn");
+        setStatus("Running QA verification...", "warn");
 
         latestQa = await runQaRequest({
           apiKey,
@@ -318,7 +526,7 @@
 
         renderQa(latestQa);
 
-        setStatus("Writing AI output and QA result back to Grist...", "warn");
+        setStatus("Writing result back to Grist...", "warn");
 
         await writeGenerationToReviewRow(latestGeneration, latestQa);
         await logAiRun({
@@ -329,15 +537,17 @@
           userRevisionComment
         });
 
+        await refreshCurrentRow();
+
         const score = Number(latestQa.trust_score || 0);
         const recommendation = latestQa.publish_recommendation || "review";
 
         if (recommendation === "publish" && score >= 90) {
-          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: publish.`, "ok");
+          setStatus(`Done. QA trust score ${score}/100. Recommended: publish.`, "ok");
         } else if (recommendation === "reject" || score < 50) {
-          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: reject.`, "error");
+          setStatus(`Done. QA trust score ${score}/100. Recommended: reject.`, "error");
         } else {
-          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: review.`, "warn");
+          setStatus(`Done. QA trust score ${score}/100. Recommended: review.`, "warn");
         }
 
       } catch (err) {
@@ -348,9 +558,20 @@
       }
     }
 
+    async function denyAndRerun() {
+      const comment = document.getElementById("denyComment").value.trim();
+
+      if (!comment) {
+        setStatus("Type a denial/revision comment first.", "warn");
+        return;
+      }
+
+      await saveRejectMessage(comment);
+      await runFullAiFlow(comment);
+    }
+
     async function loadEnv() {
       const table = await grist.docApi.fetchTable("Env");
-
       const env = {};
       const ids = table.id || [];
 
@@ -358,9 +579,7 @@
         const key = table.Key?.[i];
         const value = table.Value?.[i];
 
-        if (key) {
-          env[String(key).trim()] = value;
-        }
+        if (key) env[String(key).trim()] = value;
       }
 
       return env;
@@ -375,15 +594,12 @@
       previousQa,
       env
     }) {
-      const basePrompt = productRecord.AI_PROMPT || "";
-
       let revisionBlock = "";
 
       if (userRevisionComment) {
         revisionBlock =
           "\n\nHUMAN REVIEWER DENIED THE PREVIOUS OUTPUT.\n" +
-          "Reviewer comment:\n" +
-          userRevisionComment +
+          "Reviewer comment:\n" + userRevisionComment +
           "\n\nPrevious generated output:\n" +
           JSON.stringify(previousGeneration || {}, null, 2) +
           "\n\nPrevious QA result:\n" +
@@ -408,7 +624,7 @@
           {
             role: "user",
             content:
-              basePrompt +
+              (productRecord.AI_PROMPT || "") +
               revisionBlock +
               "\n\nAdditional product/source context JSON:\n" +
               JSON.stringify({
@@ -423,66 +639,10 @@
               }, null, 2)
           }
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "product_enrichment",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                product_name: {
-                  type: "string"
-                },
-                long_description: {
-                  type: "string"
-                },
-                bullet_features: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  }
-                },
-                specs: {
-                  type: "object",
-                  additionalProperties: {
-                    type: "string"
-                  }
-                },
-                sources: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  }
-                },
-                warnings: {
-                  type: "array",
-                  items: {
-                    type: "string"
-                  }
-                }
-              },
-              required: [
-                "product_name",
-                "long_description",
-                "bullet_features",
-                "specs",
-                "sources",
-                "warnings"
-              ],
-              additionalProperties: false
-            }
-          }
-        }
+        response_format: generationResponseFormat()
       };
 
-      const responseJson = await callOpenRouter({
-        apiKey,
-        payload,
-        env,
-        label: "generation"
-      });
-
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "generation" });
       return parseOpenRouterContent(responseJson);
     }
 
@@ -502,246 +662,34 @@
             role: "system",
             content:
               "You are a strict ecommerce medical product content QA reviewer. " +
-              "You verify AI-generated ecommerce product content against supplied product data and source evidence. " +
-              "Return only valid JSON matching the schema. Be strict. If a claim is not clearly supported, flag it."
+              "Verify generated ecommerce product content against supplied product data and source evidence. " +
+              "Return only valid JSON matching the schema. Be strict."
           },
           {
             role: "user",
             content:
               "Review this generated product content against the supplied evidence.\n\n" +
-              "SCORING:\n" +
-              "90-100 = Very trustworthy. Minor wording issues only.\n" +
-              "70-89 = Mostly trustworthy. Minor unsupported wording or clarity issues.\n" +
-              "50-69 = Needs human review. Questionable claims, missing warnings, or weak support.\n" +
-              "25-49 = Risky. Multiple unsupported claims or source mismatch.\n" +
-              "0-24 = Do not publish. Major hallucination, wrong product, or unsafe claims.\n\n" +
-              "CHECK FOR:\n" +
-              "- unsupported medical, clinical, CE, sterile, infection-control, antimicrobial, recyclable, or regulatory claims\n" +
-              "- variant-specific details leaked into parent-level copy\n" +
-              "- unsupported product name changes\n" +
-              "- unsupported bullet features or specs\n" +
-              "- irrelevant or weak sources\n" +
-              "- missing warnings\n\n" +
-              "HUMAN REVISION COMMENT, IF ANY:\n" +
+              "Score 90-100 very trustworthy, 70-89 mostly trustworthy, 50-69 needs review, 25-49 risky, 0-24 reject.\n\n" +
+              "Check unsupported medical, clinical, CE, sterile, infection-control, antimicrobial, recyclable, or regulatory claims. " +
+              "Check variant-specific details leaked into parent copy. Check unsupported bullets/specs/sources.\n\n" +
+              "Human revision comment if any:\n" +
               (userRevisionComment || "") +
-              "\n\nORIGINAL AI PROMPT:\n" +
+              "\n\nOriginal AI prompt:\n" +
               (productRecord.AI_PROMPT || "") +
-              "\n\nPRODUCT INFO:\n" +
+              "\n\nProduct info:\n" +
               (productRecord.PRODUCT_INFO || "") +
-              "\n\nNANETH RESEARCH DATA:\n" +
+              "\n\nNaneth research data:\n" +
               (productRecord.NANETH_RESEARCH_DATA || "") +
-              "\n\nSOURCE URLS:\n" +
+              "\n\nSource URLs:\n" +
               (productRecord.SOURCE_URLS || "") +
-              "\n\nAI GENERATED OUTPUT:\n" +
+              "\n\nAI generated output:\n" +
               JSON.stringify(generationResult, null, 2)
           }
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "product_content_qa",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                trust_score: {
-                  type: "number"
-                },
-                publish_recommendation: {
-                  type: "string",
-                  enum: ["publish", "review", "reject"]
-                },
-                summary: {
-                  type: "string"
-                },
-                issues: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      severity: {
-                        type: "string",
-                        enum: ["low", "medium", "high"]
-                      },
-                      field: {
-                        type: "string",
-                        enum: [
-                          "product_name",
-                          "long_description",
-                          "bullet_features",
-                          "specs",
-                          "sources",
-                          "warnings",
-                          "general"
-                        ]
-                      },
-                      issue: {
-                        type: "string"
-                      },
-                      evidence: {
-                        type: "string"
-                      },
-                      suggested_fix: {
-                        type: "string"
-                      }
-                    },
-                    required: [
-                      "severity",
-                      "field",
-                      "issue",
-                      "evidence",
-                      "suggested_fix"
-                    ],
-                    additionalProperties: false
-                  }
-                },
-                unsupported_claims: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      claim: {
-                        type: "string"
-                      },
-                      why_unsupported: {
-                        type: "string"
-                      }
-                    },
-                    required: [
-                      "claim",
-                      "why_unsupported"
-                    ],
-                    additionalProperties: false
-                  }
-                },
-                source_checks: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      source: {
-                        type: "string"
-                      },
-                      relevance: {
-                        type: "string",
-                        enum: ["high", "medium", "low", "unknown"]
-                      },
-                      notes: {
-                        type: "string"
-                      }
-                    },
-                    required: [
-                      "source",
-                      "relevance",
-                      "notes"
-                    ],
-                    additionalProperties: false
-                  }
-                },
-                field_scores: {
-                  type: "object",
-                  properties: {
-                    product_name: {
-                      type: "number"
-                    },
-                    long_description: {
-                      type: "number"
-                    },
-                    bullet_features: {
-                      type: "number"
-                    },
-                    specs: {
-                      type: "number"
-                    },
-                    sources: {
-                      type: "number"
-                    },
-                    warnings: {
-                      type: "number"
-                    }
-                  },
-                  required: [
-                    "product_name",
-                    "long_description",
-                    "bullet_features",
-                    "specs",
-                    "sources",
-                    "warnings"
-                  ],
-                  additionalProperties: false
-                },
-                safe_to_publish: {
-                  type: "boolean"
-                },
-                recommended_changes: {
-                  type: "object",
-                  properties: {
-                    product_name: {
-                      type: "string"
-                    },
-                    long_description: {
-                      type: "string"
-                    },
-                    bullet_features: {
-                      type: "array",
-                      items: {
-                        type: "string"
-                      }
-                    },
-                    specs: {
-                      type: "object",
-                      additionalProperties: {
-                        type: "string"
-                      }
-                    },
-                    sources: {
-                      type: "array",
-                      items: {
-                        type: "string"
-                      }
-                    },
-                    warnings: {
-                      type: "array",
-                      items: {
-                        type: "string"
-                      }
-                    }
-                  },
-                  required: [
-                    "product_name",
-                    "long_description",
-                    "bullet_features",
-                    "specs",
-                    "sources",
-                    "warnings"
-                  ],
-                  additionalProperties: false
-                }
-              },
-              required: [
-                "trust_score",
-                "publish_recommendation",
-                "summary",
-                "issues",
-                "unsupported_claims",
-                "source_checks",
-                "field_scores",
-                "safe_to_publish",
-                "recommended_changes"
-              ],
-              additionalProperties: false
-            }
-          }
-        }
+        response_format: qaResponseFormat()
       };
 
-      const responseJson = await callOpenRouter({
-        apiKey,
-        payload,
-        env,
-        label: "QA"
-      });
-
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "QA" });
       return parseOpenRouterContent(responseJson);
     }
 
@@ -760,10 +708,7 @@
       const responseJson = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          "OpenRouter " + label + " error: " +
-          JSON.stringify(responseJson, null, 2)
-        );
+        throw new Error("OpenRouter " + label + " error: " + JSON.stringify(responseJson, null, 2));
       }
 
       return responseJson;
@@ -773,13 +718,136 @@
       const content = responseJson?.choices?.[0]?.message?.content;
 
       if (!content) {
-        throw new Error(
-          "Unexpected OpenRouter response shape: " +
-          JSON.stringify(responseJson, null, 2)
-        );
+        throw new Error("Unexpected OpenRouter response shape: " + JSON.stringify(responseJson, null, 2));
       }
 
       return typeof content === "string" ? JSON.parse(content) : content;
+    }
+
+    async function writeGenerationToReviewRow(result, qa) {
+      const score = Number(qa.trust_score || 0);
+      const recommendation = qa.publish_recommendation || "review";
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
+          [outputFields.product_name]: result.product_name || "",
+          [outputFields.long_description]: result.long_description || "",
+          [outputFields.bullet_features]: Array.isArray(result.bullet_features)
+            ? result.bullet_features.join("\n")
+            : String(result.bullet_features || ""),
+          [outputFields.specs]: typeof result.specs === "string"
+            ? result.specs
+            : JSON.stringify(result.specs || {}, null, 2),
+          [outputFields.sources]: Array.isArray(result.sources)
+            ? result.sources.join("\n")
+            : String(result.sources || ""),
+          [outputFields.warnings]: Array.isArray(result.warnings)
+            ? result.warnings.join("\n")
+            : String(result.warnings || ""),
+          AI_STATUS: `Generated + QA ${score}/100 (${recommendation})`,
+          REVIEW_STATUS: recommendation === "publish" && score >= 90
+            ? "AI Ready for Approval"
+            : "Needs Human Review"
+        }]
+      ]);
+    }
+
+    async function refreshCurrentRow() {
+      const table = await grist.docApi.fetchTable(PRODUCT_TABLE_ID);
+      const newRows = tableToRecords(table);
+      const updated = newRows.find(r => r.id === currentRecord.id);
+
+      if (updated) {
+        rows = newRows;
+        currentRecord = updated;
+        currentIndex = rows.findIndex(r => r.id === updated.id);
+        renderCurrentRecord();
+      }
+    }
+
+    async function saveRejectMessage(comment) {
+      if (!currentRecord) return;
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
+          REJECT_MESSAGE: comment,
+          REVIEW_STATUS: "Rejected - Rerun Requested",
+          AI_STATUS: "Rejected by human reviewer"
+        }]
+      ]);
+    }
+
+    async function approveCurrentResult() {
+      if (!currentRecord) {
+        setStatus("No product row selected.", "error");
+        return;
+      }
+
+      if (!latestGeneration || !latestQa) {
+        setStatus("Generate and QA-check a result before approving.", "warn");
+        return;
+      }
+
+      setButtonsDisabled(true);
+
+      try {
+        await grist.docApi.applyUserActions([
+          ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
+            REVIEW_STATUS: "Approved",
+            AI_STATUS: `Approved after QA ${latestQa.trust_score}/100`,
+            REJECT_MESSAGE: ""
+          }]
+        ]);
+
+        await refreshCurrentRow();
+        setStatus("Approved.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function logAiRun({ generationModel, qaModel, generationResult, qaResult, userRevisionComment }) {
+      try {
+        const createdAt = Math.floor(Date.now() / 1000);
+        const finalJson = { generation: generationResult, qa: qaResult };
+
+        const result = await grist.docApi.applyUserActions([
+          ["AddRecord", RUNS_TABLE_ID, null, {
+            GROUP_SKU: currentRecord.GROUP_SKU || "",
+            CREATED_AT: createdAt,
+            MODEL_1: generationModel,
+            MODEL_1_OUTPUT: JSON.stringify(generationResult, null, 2),
+            MODEL_2: qaModel,
+            MODEL_2_OUTPUT: JSON.stringify(qaResult, null, 2),
+            FINAL_JSON: JSON.stringify(finalJson, null, 2),
+            FINAL_PRODUCT_NAME: generationResult.product_name || "",
+            FINAL_LONG_DESCRIPTION: generationResult.long_description || "",
+            FINAL_BULLETS: Array.isArray(generationResult.bullet_features) ? generationResult.bullet_features.join("\n") : "",
+            FINAL_SPECS: JSON.stringify(generationResult.specs || {}, null, 2),
+            FINAL_SOURCES: Array.isArray(generationResult.sources) ? generationResult.sources.join("\n") : "",
+            FINAL_WARNINGS: Array.isArray(generationResult.warnings) ? generationResult.warnings.join("\n") : "",
+            WARNINGS: JSON.stringify({
+              generation_warnings: generationResult.warnings || [],
+              qa_issues: qaResult.issues || [],
+              unsupported_claims: qaResult.unsupported_claims || []
+            }, null, 2),
+            PROMPT_SENT: currentRecord.AI_PROMPT || "",
+            HTML_URLS_SENT: currentRecord.SOURCE_URLS || "",
+            SOURCE_FINGERPRINT: currentRecord.SOURCE_FINGERPRINT || "",
+            RUN_STATUS: qaResult.publish_recommendation || "review",
+            ACTION: userRevisionComment ? "Rerun after rejection" : "Generated",
+            APPROVED: false,
+            HUMAN_NOTES: userRevisionComment || ""
+          }]
+        ]);
+
+        if (Array.isArray(result) && result[0]) latestRunRowId = result[0];
+      } catch (err) {
+        console.warn("Could not log AI run. Continuing.", err);
+      }
     }
 
     function renderQa(qa) {
@@ -796,175 +864,114 @@
       document.getElementById("qaOutput").textContent = JSON.stringify(qa, null, 2);
     }
 
-    async function writeGenerationToReviewRow(result, qa) {
-      const score = Number(qa.trust_score || 0);
-      const recommendation = qa.publish_recommendation || "review";
-
-      await grist.docApi.applyUserActions([
-        [
-          "UpdateRecord",
-          PRODUCT_TABLE_ID,
-          currentRecord.id,
-          {
-            [outputFields.product_name]: result.product_name || "",
-            [outputFields.long_description]: result.long_description || "",
-            [outputFields.bullet_features]: Array.isArray(result.bullet_features)
-              ? result.bullet_features.join("\n")
-              : String(result.bullet_features || ""),
-            [outputFields.specs]: typeof result.specs === "string"
-              ? result.specs
-              : JSON.stringify(result.specs || {}, null, 2),
-            [outputFields.sources]: Array.isArray(result.sources)
-              ? result.sources.join("\n")
-              : String(result.sources || ""),
-            [outputFields.warnings]: Array.isArray(result.warnings)
-              ? result.warnings.join("\n")
-              : String(result.warnings || ""),
-            AI_STATUS: `Generated + QA ${score}/100 (${recommendation})`,
-            REVIEW_STATUS: recommendation === "publish" && score >= 90
-              ? "AI Ready for Approval"
-              : "Needs Human Review"
+    function generationResponseFormat() {
+      return {
+        type: "json_schema",
+        json_schema: {
+          name: "product_enrichment",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              product_name: { type: "string" },
+              long_description: { type: "string" },
+              bullet_features: { type: "array", items: { type: "string" } },
+              specs: { type: "object", additionalProperties: { type: "string" } },
+              sources: { type: "array", items: { type: "string" } },
+              warnings: { type: "array", items: { type: "string" } }
+            },
+            required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+            additionalProperties: false
           }
-        ]
-      ]);
+        }
+      };
     }
 
-    async function saveRejectMessage(comment) {
-      if (!currentRecord) return;
-
-      await grist.docApi.applyUserActions([
-        [
-          "UpdateRecord",
-          PRODUCT_TABLE_ID,
-          currentRecord.id,
-          {
-            REJECT_MESSAGE: comment,
-            REVIEW_STATUS: "Rejected - Rerun Requested",
-            AI_STATUS: "Rejected by human reviewer"
-          }
-        ]
-      ]);
-    }
-
-    async function approveCurrentResult() {
-      if (!currentRecord) {
-        setStatus("No selected product row.", "error");
-        return;
-      }
-
-      if (!latestGeneration || !latestQa) {
-        setStatus("Generate and QA-check a result before approving.", "warn");
-        return;
-      }
-
-      setButtonsDisabled(true);
-
-      try {
-        await grist.docApi.applyUserActions([
-          [
-            "UpdateRecord",
-            PRODUCT_TABLE_ID,
-            currentRecord.id,
-            {
-              REVIEW_STATUS: "Approved",
-              AI_STATUS: `Approved after QA ${latestQa.trust_score}/100`,
-              REJECT_MESSAGE: ""
-            }
-          ]
-        ]);
-
-        if (latestRunRowId) {
-          await grist.docApi.applyUserActions([
-            [
-              "UpdateRecord",
-              RUNS_TABLE_ID,
-              latestRunRowId,
-              {
-                APPROVED: true,
-                ACTION: "Approved",
-                RUN_STATUS: "Approved"
+    function qaResponseFormat() {
+      return {
+        type: "json_schema",
+        json_schema: {
+          name: "product_content_qa",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              trust_score: { type: "number" },
+              publish_recommendation: { type: "string", enum: ["publish", "review", "reject"] },
+              summary: { type: "string" },
+              issues: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    severity: { type: "string", enum: ["low", "medium", "high"] },
+                    field: { type: "string", enum: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings", "general"] },
+                    issue: { type: "string" },
+                    evidence: { type: "string" },
+                    suggested_fix: { type: "string" }
+                  },
+                  required: ["severity", "field", "issue", "evidence", "suggested_fix"],
+                  additionalProperties: false
+                }
+              },
+              unsupported_claims: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    claim: { type: "string" },
+                    why_unsupported: { type: "string" }
+                  },
+                  required: ["claim", "why_unsupported"],
+                  additionalProperties: false
+                }
+              },
+              source_checks: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    source: { type: "string" },
+                    relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                    notes: { type: "string" }
+                  },
+                  required: ["source", "relevance", "notes"],
+                  additionalProperties: false
+                }
+              },
+              field_scores: {
+                type: "object",
+                properties: {
+                  product_name: { type: "number" },
+                  long_description: { type: "number" },
+                  bullet_features: { type: "number" },
+                  specs: { type: "number" },
+                  sources: { type: "number" },
+                  warnings: { type: "number" }
+                },
+                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+                additionalProperties: false
+              },
+              safe_to_publish: { type: "boolean" },
+              recommended_changes: {
+                type: "object",
+                properties: {
+                  product_name: { type: "string" },
+                  long_description: { type: "string" },
+                  bullet_features: { type: "array", items: { type: "string" } },
+                  specs: { type: "object", additionalProperties: { type: "string" } },
+                  sources: { type: "array", items: { type: "string" } },
+                  warnings: { type: "array", items: { type: "string" } }
+                },
+                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+                additionalProperties: false
               }
-            ]
-          ]);
+            },
+            required: ["trust_score", "publish_recommendation", "summary", "issues", "unsupported_claims", "source_checks", "field_scores", "safe_to_publish", "recommended_changes"],
+            additionalProperties: false
+          }
         }
-
-        setStatus("Approved.", "ok");
-
-      } catch (err) {
-        console.error(err);
-        setStatus(err.message || String(err), "error");
-      } finally {
-        setButtonsDisabled(false);
-      }
-    }
-
-    async function logAiRun({
-      generationModel,
-      qaModel,
-      generationResult,
-      qaResult,
-      userRevisionComment
-    }) {
-      try {
-        const finalJson = {
-          generation: generationResult,
-          qa: qaResult
-        };
-
-        const createdAt = Math.floor(Date.now() / 1000);
-
-        const actions = [
-          [
-            "AddRecord",
-            RUNS_TABLE_ID,
-            null,
-            {
-              GROUP_SKU: currentRecord.GROUP_SKU || "",
-              CREATED_AT: createdAt,
-              MODEL_1: generationModel,
-              MODEL_1_OUTPUT: JSON.stringify(generationResult, null, 2),
-              MODEL_2: qaModel,
-              MODEL_2_OUTPUT: JSON.stringify(qaResult, null, 2),
-              FINAL_JSON: JSON.stringify(finalJson, null, 2),
-              FINAL_PRODUCT_NAME: generationResult.product_name || "",
-              FINAL_LONG_DESCRIPTION: generationResult.long_description || "",
-              FINAL_BULLETS: Array.isArray(generationResult.bullet_features)
-                ? generationResult.bullet_features.join("\n")
-                : "",
-              FINAL_SPECS: JSON.stringify(generationResult.specs || {}, null, 2),
-              FINAL_SOURCES: Array.isArray(generationResult.sources)
-                ? generationResult.sources.join("\n")
-                : "",
-              FINAL_WARNINGS: [
-                ...(Array.isArray(generationResult.warnings) ? generationResult.warnings : []),
-                qaResult.summary ? "QA: " + qaResult.summary : "",
-                userRevisionComment ? "Human revision comment: " + userRevisionComment : ""
-              ].filter(Boolean).join("\n"),
-              WARNINGS: JSON.stringify({
-                generation_warnings: generationResult.warnings || [],
-                qa_issues: qaResult.issues || [],
-                unsupported_claims: qaResult.unsupported_claims || []
-              }, null, 2),
-              PROMPT_SENT: currentRecord.AI_PROMPT || "",
-              HTML_URLS_SENT: currentRecord.SOURCE_URLS || "",
-              SOURCE_FINGERPRINT: currentRecord.SOURCE_FINGERPRINT || "",
-              RUN_STATUS: qaResult.publish_recommendation || "review",
-              ACTION: userRevisionComment ? "Rerun after rejection" : "Generated",
-              APPROVED: false,
-              HUMAN_NOTES: userRevisionComment || ""
-            }
-          ]
-        ];
-
-        const result = await grist.docApi.applyUserActions(actions);
-
-        if (Array.isArray(result) && result[0]) {
-          latestRunRowId = result[0];
-        }
-
-      } catch (err) {
-        console.warn("Could not log AI run. Continuing.", err);
-      }
+      };
     }
 
     function setStatus(message, cls) {
@@ -974,20 +981,16 @@
     }
 
     function setButtonsDisabled(disabled) {
+      document.getElementById("reloadBtn").disabled = disabled;
+      document.getElementById("prevBtn").disabled = disabled || currentIndex === 0;
+      document.getElementById("nextBtn").disabled = disabled || currentIndex === rows.length - 1;
       document.getElementById("generateBtn").disabled = disabled;
       document.getElementById("approveBtn").disabled = disabled;
       document.getElementById("denyBtn").disabled = disabled;
     }
 
-    function textLinesToHtml(text) {
-      const lines = String(text || "")
-        .split(/\r?\n/)
-        .map(s => s.trim())
-        .filter(Boolean);
-
-      return lines.length
-        ? lines.map(line => `<div>${escapeHtml(line)}</div>`).join("")
-        : "-";
+    function setText(id, value) {
+      document.getElementById(id).textContent = value == null || value === "" ? "-" : String(value);
     }
 
     function escapeHtml(value) {
