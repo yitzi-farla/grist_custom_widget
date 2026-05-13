@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Naneth AI Review Widget</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="topbar">
+      <div>
+        <div class="eyebrow">Naneth AI Review</div>
+        <h1 id="title">Select a review row</h1>
+        <div id="meta" class="muted"></div>
+      </div>
+      <div class="actions">
+        <button id="runBtn">Run AI + QA</button>
+        <button id="saveBtn" class="ok">Save</button>
+        <button id="skipBtn">Skip</button>
+        <button id="rejectBtn" class="danger">Reject back to AI</button>
+      </div>
+    </div>
+
+    <section class="panel">
+      <label>Prompt sent to AI</label>
+      <textarea id="prompt" readonly></textarea>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <label>Parent label</label>
+        <pre id="parentLabel"></pre>
+      </div>
+      <div class="panel">
+        <label>VARPAR / SOLOPAR</label>
+        <pre id="varpar"></pre>
+      </div>
+      <div class="panel">
+        <label>Variant SKUs</label>
+        <pre id="variantSkus"></pre>
+      </div>
+      <div class="panel">
+        <label>Subvariant SKUs</label>
+        <pre id="subvariantSkus"></pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <label>Reject message / instructions back to AI</label>
+      <textarea id="rejectMessage" placeholder="Tell the model what to fix before pressing Reject back to AI..."></textarea>
+    </section>
+
+    <section class="results">
+      <div class="field"><label>Final product name</label><textarea id="finalProductName"></textarea></div>
+      <div class="field"><label>Final long description</label><textarea id="finalLongDescription"></textarea></div>
+      <div class="field"><label>Final bullets</label><textarea id="finalBullets"></textarea></div>
+      <div class="field"><label>Final specs</label><textarea id="finalSpecs"></textarea></div>
+      <div class="field"><label>Final sources</label><textarea id="finalSources"></textarea></div>
+      <div class="field"><label>Final warnings</label><textarea id="finalWarnings"></textarea></div>
+    </section>
+
+    <section class="panel">
+      <label>Log</label>
+      <pre id="log"></pre>
+    </section>
+  </div>
+
+  <script src="./widget.js"></script>
+</body>
+</html>
