@@ -185,7 +185,7 @@
 
 <body>
   <div class="topbar">
-    <h2>OpenRouter Product Enrichment <span class="version-badge">v14-compiled-prompts-no-ai-prompt-2026-05-13</span></h2>
+    <h2>OpenRouter Product Enrichment <span class="version-badge">v16-editable-final-fields-2026-05-13</span></h2>
 
     <div class="row">
       <button id="reloadBtn">Reload Rows</button>
@@ -194,7 +194,7 @@
       <span id="position" class="muted">No rows loaded</span>
     </div>
 
-    <div id="status" class="status">Loading v14-compiled-prompts-no-ai-prompt-2026-05-13...</div>
+    <div id="status" class="status">Loading v16-editable-final-fields-2026-05-13...</div>
   </div>
 
   <div class="card">
@@ -253,12 +253,13 @@
     <h3>Actions</h3>
     <div class="row">
       <button id="generateBtn" class="primary">Generate + 3-Step QA</button>
-      <button id="approveBtn" class="success">Approve Result</button>
+      <button id="approveBtn" class="success">Save Edits + Approve Result</button>
       <button id="denyBtn" class="danger">Deny + Rerun With Comment</button>
     </div>
 
     <p class="muted">
       Deny comment is sent back to AI with the previous output, QA results, repaired output, and related HTML attachment text.
+      FINAL_LONG_DESCRIPTION, FINAL_BULLETS, FINAL_SPECS, and FINAL_DOCUMENTATION are editable below before you save/approve.
     </p>
 
     <textarea id="denyComment" placeholder="Example: Remove unsupported accuracy wording. Product name should stay closer to source. Specs need source support."></textarea>
@@ -269,32 +270,37 @@
     <div class="output-grid">
       <div class="field-card">
         <div class="field-title">FINAL_PRODUCT_NAME</div>
-        <div id="finalProductName" class="muted">-</div>
+        <input id="finalProductName" type="text" placeholder="Final product name" />
       </div>
 
       <div class="field-card">
-        <div class="field-title">FINAL_LONG_DESCRIPTION</div>
-        <div id="finalLongDescription" class="muted">-</div>
+        <div class="field-title">FINAL_LONG_DESCRIPTION <span class="muted">(editable)</span></div>
+        <textarea id="finalLongDescription" placeholder="Final long description"></textarea>
       </div>
 
       <div class="field-card">
-        <div class="field-title">FINAL_BULLETS</div>
-        <pre id="finalBullets">-</pre>
+        <div class="field-title">FINAL_BULLETS <span class="muted">(editable, one per line)</span></div>
+        <textarea id="finalBullets" placeholder="One bullet per line"></textarea>
       </div>
 
       <div class="field-card">
-        <div class="field-title">FINAL_SPECS</div>
-        <pre id="finalSpecs">-</pre>
+        <div class="field-title">FINAL_SPECS <span class="muted">(editable)</span></div>
+        <textarea id="finalSpecs" placeholder="Specs as JSON or plain text"></textarea>
       </div>
 
       <div class="field-card">
         <div class="field-title">FINAL_SOURCES</div>
-        <pre id="finalSources">-</pre>
+        <textarea id="finalSources" placeholder="One source URL per line"></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_DOCUMENTATION <span class="muted">(editable)</span></div>
+        <textarea id="finalDocumentation" placeholder="Documentation links / notes"></textarea>
       </div>
 
       <div class="field-card">
         <div class="field-title">FINAL_WARNINGS</div>
-        <pre id="finalWarnings">-</pre>
+        <textarea id="finalWarnings" placeholder="Warnings / review notes"></textarea>
       </div>
     </div>
   </div>
@@ -311,7 +317,7 @@
   </div>
 
   <script>
-    const WIDGET_VERSION = "v14-compiled-prompts-no-ai-prompt-2026-05-13";
+    const WIDGET_VERSION = "v16-editable-final-fields-2026-05-13";
     console.log("Loaded widget version", WIDGET_VERSION);
     const PRODUCT_TABLE_ID = "Naneth_AI_Review";
     const HTML_TABLE_ID = "Naneth_HTML";
@@ -326,7 +332,8 @@
       bullet_features: "FINAL_BULLETS",
       specs: "FINAL_SPECS",
       sources: "FINAL_SOURCES",
-      warnings: "FINAL_WARNINGS"
+      warnings: "FINAL_WARNINGS",
+      documentation: "FINAL_DOCUMENTATION"
     };
 
     let rows = [];
@@ -458,6 +465,13 @@
         setText("productInfo", "-");
         setText("researchData", "-");
         setText("aiPrompt", "-");
+        setEditableValue("finalProductName", "");
+        setEditableValue("finalLongDescription", "");
+        setEditableValue("finalBullets", "");
+        setEditableValue("finalSpecs", "");
+        setEditableValue("finalSources", "");
+        setEditableValue("finalDocumentation", "");
+        setEditableValue("finalWarnings", "");
         return;
       }
 
@@ -481,12 +495,13 @@
         previousQa: null
       }));
 
-      setText("finalProductName", record.FINAL_PRODUCT_NAME || "-");
-      setText("finalLongDescription", record.FINAL_LONG_DESCRIPTION || "-");
-      setText("finalBullets", record.FINAL_BULLETS || "-");
-      setText("finalSpecs", record.FINAL_SPECS || "-");
-      setText("finalSources", record.FINAL_SOURCES || "-");
-      setText("finalWarnings", record.FINAL_WARNINGS || "-");
+      setEditableValue("finalProductName", record.FINAL_PRODUCT_NAME || "");
+      setEditableValue("finalLongDescription", record.FINAL_LONG_DESCRIPTION || "");
+      setEditableValue("finalBullets", record.FINAL_BULLETS || "");
+      setEditableValue("finalSpecs", record.FINAL_SPECS || "");
+      setEditableValue("finalSources", record.FINAL_SOURCES || "");
+      setEditableValue("finalDocumentation", record.FINAL_DOCUMENTATION || "");
+      setEditableValue("finalWarnings", record.FINAL_WARNINGS || "");
     }
 
     function renderVariants(record) {
@@ -750,6 +765,7 @@
             }
 
             const rawReadableText = await readAttachmentAsText(attachmentId, row.URL || "");
+            const documentLinks = extractDocumentLinksFromText(rawReadableText, row.URL || "");
             const remainingChars = Math.max(0, MAX_TOTAL_HTML_CHARS - totalChars);
             const text = trimForPrompt(rawReadableText, Math.min(MAX_HTML_CHARS_PER_ATTACHMENT, remainingChars));
             totalChars += text.length;
@@ -761,7 +777,8 @@
               response_code: row.RESPONSE_CODE || "",
               attachment_id: attachmentId,
               error: "",
-              text
+              text,
+              document_links: documentLinks
             });
           } catch (err) {
             attachments.push({
@@ -895,7 +912,10 @@
         const h1 = doc.querySelector("h1")?.textContent || "";
         const bodyText = doc.body ? doc.body.innerText : doc.documentElement.innerText;
 
-        const pdfLinks = extractPdfLinksFromDocument(doc, sourcePageUrl);
+        const pdfLinks = mergeDocumentLinks(
+          extractPdfLinksFromDocument(doc, sourcePageUrl),
+          extractPdfLinksFromRawHtml(raw, sourcePageUrl)
+        );
         const pdfLinkText = formatPdfLinksForPrompt(pdfLinks);
 
         return [
@@ -920,29 +940,116 @@
       doc.querySelectorAll("a[href]").forEach(anchor => {
         const href = String(anchor.getAttribute("href") || "").trim();
         const text = cleanWhitespace(anchor.textContent || anchor.getAttribute("title") || anchor.getAttribute("aria-label") || "");
-
         if (!href) return;
 
         const lowerHref = href.toLowerCase();
         const lowerText = text.toLowerCase();
-        const looksLikePdf = lowerHref.includes(".pdf") || lowerText.includes("pdf") || lowerText.includes("brochure") || lowerText.includes("ifu") || lowerText.includes("instructions") || lowerText.includes("manual") || lowerText.includes("datasheet") || lowerText.includes("data sheet");
-
-        if (!looksLikePdf) return;
+        if (!isDocumentationLikeLink(lowerHref, lowerText)) return;
 
         links.push({
+          title: text || guessDocumentTitleFromUrl(href),
           text: text || "[no link text]",
           url: absolutizeUrl(href, sourcePageUrl),
-          raw_href: href
+          raw_href: href,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(href, text)
         });
       });
 
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function extractPdfLinksFromRawHtml(rawHtml, sourcePageUrl) {
+      const raw = String(rawHtml || "");
+      const links = [];
+      const urlRegex = /https?:[^\s"'<>]+?\.pdf(?:\?[^\s"'<>]*)?/gi;
+      let match;
+
+      while ((match = urlRegex.exec(raw)) !== null) {
+        const url = match[0].replace(/&amp;/g, "&");
+        links.push({
+          title: guessDocumentTitleFromUrl(url),
+          text: guessDocumentTitleFromUrl(url),
+          url: absolutizeUrl(url, sourcePageUrl),
+          raw_href: url,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(url, "")
+        });
+      }
+
+      const hrefRegex = /href=["']([^"']*(?:pdf|brochure|ifu|instructions|manual|datasheet|data-sheet)[^"']*)["'][^>]*>([\s\S]{0,300}?)<\/a>/gi;
+      while ((match = hrefRegex.exec(raw)) !== null) {
+        const href = match[1].replace(/&amp;/g, "&");
+        const text = cleanWhitespace(match[2].replace(/<[^>]+>/g, " ")) || guessDocumentTitleFromUrl(href);
+        links.push({
+          title: text,
+          text,
+          url: absolutizeUrl(href, sourcePageUrl),
+          raw_href: href,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(href, text)
+        });
+      }
+
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function isDocumentationLikeLink(lowerHref, lowerText) {
+      return (
+        lowerHref.includes(".pdf") ||
+        lowerHref.includes("brochure") ||
+        lowerHref.includes("ifu") ||
+        lowerHref.includes("instructions") ||
+        lowerHref.includes("manual") ||
+        lowerHref.includes("datasheet") ||
+        lowerHref.includes("data-sheet") ||
+        lowerText.includes("pdf") ||
+        lowerText.includes("brochure") ||
+        lowerText.includes("ifu") ||
+        lowerText.includes("instructions") ||
+        lowerText.includes("manual") ||
+        lowerText.includes("datasheet") ||
+        lowerText.includes("data sheet") ||
+        lowerText.includes("catalog") ||
+        lowerText.includes("catalogue")
+      );
+    }
+
+    function guessDocumentType(url, text) {
+      const value = (String(url || "") + " " + String(text || "")).toLowerCase();
+      if (value.includes("ifu") || value.includes("instruction")) return "instructions_for_use";
+      if (value.includes("brochure")) return "brochure";
+      if (value.includes("catalog") || value.includes("catalogue")) return "catalog";
+      if (value.includes("datasheet") || value.includes("data-sheet") || value.includes("data sheet")) return "datasheet";
+      if (value.includes("manual")) return "manual";
+      if (value.includes("pdf")) return "pdf";
+      return "document";
+    }
+
+    function guessDocumentTitleFromUrl(url) {
+      try {
+        const u = new URL(String(url || ""), "https://example.com");
+        const last = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "Document");
+        return last.replace(/[-_]+/g, " ").replace(/\.pdf$/i, "").trim() || "Document";
+      } catch (err) {
+        return String(url || "Document").split("/").pop().replace(/[-_]+/g, " ").replace(/\.pdf$/i, "").trim() || "Document";
+      }
+    }
+
+    function mergeDocumentLinks(...groups) {
       const seen = new Set();
-      return links.filter(link => {
-        const key = link.url || link.raw_href;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).slice(0, 30);
+      const out = [];
+      for (const group of groups) {
+        for (const link of (group || [])) {
+          const url = String(link.url || link.raw_href || "").trim();
+          if (!url) continue;
+          const key = url.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(link);
+        }
+      }
+      return out;
     }
 
     function absolutizeUrl(href, sourcePageUrl) {
@@ -976,6 +1083,46 @@
       const value = String(text || "");
       if (value.length <= maxChars) return value;
       return value.slice(0, maxChars) + "\n\n[TRUNCATED FOR PROMPT]";
+    }
+
+    function extractDocumentLinksFromText(text, sourcePageUrl) {
+      const value = String(text || "");
+      const links = [];
+      const urlRegex = /https?:[^\s"'<>]+?\.pdf(?:\?[^\s"'<>]*)?/gi;
+      let match;
+      while ((match = urlRegex.exec(value)) !== null) {
+        const url = match[0];
+        links.push({
+          title: guessDocumentTitleFromUrl(url),
+          text: guessDocumentTitleFromUrl(url),
+          url: absolutizeUrl(url, sourcePageUrl),
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(url, "")
+        });
+      }
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function collectDocumentLinksFromAttachments(attachments) {
+      const all = [];
+      for (const att of (attachments || [])) {
+        if (Array.isArray(att.document_links)) {
+          for (const link of att.document_links) {
+            all.push({ ...link, source_page: link.source_page || att.url || "" });
+          }
+        }
+      }
+      return mergeDocumentLinks(all);
+    }
+
+    function formatDocumentLinksForPrompt(attachments) {
+      const links = collectDocumentLinksFromAttachments(attachments);
+      if (!links.length) return "No PDF/document links found in related HTML attachments.";
+      return [
+        "PDF/DOCUMENT LINKS EXTRACTED FROM HTML ATTACHMENTS:",
+        "For each link, decide whether it matches the parent product family. Include matching documents in the documentation output. Do not include unrelated generic catalogs unless they contain product-specific support.",
+        ...links.map((link, index) => `${index + 1}. Title: ${link.title || link.text || "Document"}\n   Type: ${link.type || "document"}\n   URL: ${link.url}\n   Found on: ${link.source_page || "unknown source page"}`)
+      ].join("\n");
     }
 
     function formatHtmlAttachmentsForPrompt(attachments) {
@@ -1013,6 +1160,7 @@
           `  Response code: ${att.response_code}`,
           `  Attachment ID: ${att.attachment_id}`,
           `  Text chars sent: ${att.text ? att.text.length : 0}`,
+          `  Document links found: ${Array.isArray(att.document_links) ? att.document_links.length : 0}`,
           att.error ? `  Error: ${att.error}` : ""
         ].filter(Boolean).join("\n");
       }).join("\n\n");
@@ -1120,7 +1268,7 @@
         "- If unsure, add the concern to warnings.\n\n" +
 
         "OUTPUT FORMAT:\n" +
-        "Return structured JSON with product_name, long_description, bullet_features, specs, warnings, and sources.\n\n" +
+        "Return structured JSON with product_name, long_description, bullet_features, specs, documentation, warnings, and sources. documentation must contain only matching PDF/document links found in the HTML/source evidence.\n\n" +
 
         "CLEAN PRODUCT INFO:\n" +
         cleanProductInfo +
@@ -1130,6 +1278,9 @@
 
         "\n\nRELATED HTML ATTACHMENT TEXT:\n" +
         formatHtmlAttachmentsForPrompt(relatedHtmlAttachments || []) +
+
+        "\n\nRELATED PDF/DOCUMENT LINKS FOUND IN HTML:\n" +
+        formatDocumentLinksForPrompt(relatedHtmlAttachments || []) +
 
         revisionBlock
       );
@@ -1177,6 +1328,9 @@
         "\n\nRelated HTML attachment text:\n" +
         formatHtmlAttachmentsForPrompt(relatedHtmlAttachments || []) +
 
+        "\n\nRelated PDF/document links found in HTML:\n" +
+        formatDocumentLinksForPrompt(relatedHtmlAttachments || []) +
+
         "\n\nSource URLs:\n" +
         (productRecord.SOURCE_URLS || "") +
 
@@ -1213,6 +1367,9 @@
         "\n\nRelated HTML attachment text:\n" +
         formatHtmlAttachmentsForPrompt(relatedHtmlAttachments || []) +
 
+        "\n\nRelated PDF/document links found in HTML:\n" +
+        formatDocumentLinksForPrompt(relatedHtmlAttachments || []) +
+
         "\n\nInitial generated output to repair:\n" +
         JSON.stringify(initialGeneration || {}, null, 2) +
 
@@ -1226,6 +1383,7 @@
         "- Remove or rewrite bullets that duplicate the long description.\n" +
         "- Keep only useful, source-supported, parent-level specs. If none remain, use {}.\n" +
         "- Prefer fewer high-quality bullets over repeated or weak bullets.\n" +
+        "- Include matching PDF/document links in documentation. Remove unrelated or generic documentation links.\n" +
         "- Add warnings for excluded variant tables or unsupported claims."
       );
     }
@@ -1353,6 +1511,7 @@
         "Use AUTHORITATIVE PARENT IDENTITY from the user message as the source of truth for product_name. Do not use child variant/subvariant titles as the parent product name. " +
         "If source pages contain PDF, IFU, brochure, manual, data sheet, or instructions links, inspect their link text and URLs from the supplied HTML evidence and decide whether they appear to match this exact product family before using them. " +
         "Only include matching PDF/document URLs in sources when they clearly relate to the product family, manufacturer, SKU, or product name. Do not include generic, unrelated, or ambiguous PDFs as sources; mention ambiguous potentially relevant PDFs in warnings instead. " +
+        "Return a separate documentation array with matching PDF/document links. Each documentation item must include title, type, url, source_page, relevance, and notes. If no matching documents are found, return documentation as an empty array. " +
 
         "CRITICAL PARENT-LEVEL RULES: " +
         "You are writing parent-level ecommerce copy only. Do not put variant-specific sizes, diameters, colours, pack sizes, fits, UOMs, kit options, SKUs, option values, or option labels into product_name, long_description, bullet_features, or specs. " +
@@ -1388,7 +1547,7 @@
         "Score 90-100 very trustworthy, 70-89 mostly trustworthy, 50-69 needs review, 25-49 risky, 0-24 reject.\n\n" +
         "Check unsupported medical, clinical, CE, sterile, infection-control, antimicrobial, recyclable, or regulatory claims. " +
         "Check variant-specific details leaked into parent copy. Check unsupported bullets/specs/sources. " +
-        "Check any PDF/document links found in the HTML evidence. Verify whether each PDF/document source included by the generation appears to match the product family, manufacturer, SKU, or product name. Penalise irrelevant or ambiguous PDF/document sources. If a relevant-looking PDF was found but not used, mention it in issues or source_checks. " +
+        "Check any PDF/document links found in the HTML evidence. Verify whether each PDF/document source included by the generation appears to match the product family, manufacturer, SKU, or product name. Penalise irrelevant or ambiguous PDF/document sources. If a relevant-looking PDF was found but not used, add it to recommended_changes.documentation and mention it in issues or source_checks. Documentation output must not be empty when relevant matching PDFs are found. " +
 
         "Reject or heavily penalise the output if specs contain variant-specific sizes, diameters, colours, pack sizes, kit options, UOMs, SKUs, option labels, numbered option rows, or a variant matrix. " +
         "Parent-level specs must only include attributes that apply to the entire product family. If specs are mostly variant options, trust_score must be below 70 and publish_recommendation must be review or reject. " +
@@ -1431,27 +1590,45 @@
     }
 
     async function writeGenerationToReviewRow(result, qa) {
-      const score = Number(qa.trust_score || 0);
-      const recommendation = qa.publish_recommendation || "review";
+      const fieldsToWrite = {
+        [outputFields.product_name]: result.product_name || "",
+        [outputFields.long_description]: result.long_description || "",
+        [outputFields.bullet_features]: Array.isArray(result.bullet_features)
+          ? result.bullet_features.join("\n")
+          : String(result.bullet_features || ""),
+        [outputFields.specs]: typeof result.specs === "string"
+          ? result.specs
+          : JSON.stringify(result.specs || {}, null, 2),
+        [outputFields.sources]: Array.isArray(result.sources)
+          ? result.sources.join("\n")
+          : String(result.sources || ""),
+        [outputFields.warnings]: Array.isArray(result.warnings)
+          ? result.warnings.join("\n")
+          : String(result.warnings || "")
+      };
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.documentation)) {
+        fieldsToWrite[outputFields.documentation] = formatDocumentationForGrist(result.documentation || []);
+      }
 
       await grist.docApi.applyUserActions([
-        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
-          [outputFields.product_name]: result.product_name || "",
-          [outputFields.long_description]: result.long_description || "",
-          [outputFields.bullet_features]: Array.isArray(result.bullet_features)
-            ? result.bullet_features.join("\n")
-            : String(result.bullet_features || ""),
-          [outputFields.specs]: typeof result.specs === "string"
-            ? result.specs
-            : JSON.stringify(result.specs || {}, null, 2),
-          [outputFields.sources]: Array.isArray(result.sources)
-            ? result.sources.join("\n")
-            : String(result.sources || ""),
-          [outputFields.warnings]: Array.isArray(result.warnings)
-            ? result.warnings.join("\n")
-            : String(result.warnings || "")
-        }]
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, fieldsToWrite]
       ]);
+    }
+
+    function formatDocumentationForGrist(documentation) {
+      if (!Array.isArray(documentation) || !documentation.length) return "";
+      return documentation.map((doc, index) => {
+        if (typeof doc === "string") return doc;
+        return [
+          `${index + 1}. ${doc.title || doc.text || doc.url || "Document"}`,
+          doc.type ? `Type: ${doc.type}` : "",
+          doc.relevance ? `Relevance: ${doc.relevance}` : "",
+          doc.url ? `URL: ${doc.url}` : "",
+          doc.source_page ? `Found on: ${doc.source_page}` : "",
+          doc.notes ? `Notes: ${doc.notes}` : ""
+        ].filter(Boolean).join("\n");
+      }).join("\n\n");
     }
 
     async function refreshCurrentRow() {
@@ -1486,28 +1663,45 @@
         return;
       }
 
-      if (!latestGeneration || !latestQa) {
-        setStatus("Generate and QA-check a result before approving.", "warn");
-        return;
-      }
-
       setButtonsDisabled(true);
 
       try {
-        await grist.docApi.applyUserActions([
-          ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
-            REJECT_MESSAGE: ""
-          }]
-        ]);
-
+        await saveEditedFinalOutputFromUi();
         await refreshCurrentRow();
-        setStatus("Approved.", "ok");
+        setStatus("Edited final output saved. Approval/status is formula-driven, so no formula columns were written.", "ok");
       } catch (err) {
         console.error(err);
         setStatus(err.message || String(err), "error");
       } finally {
         setButtonsDisabled(false);
       }
+    }
+
+    async function saveEditedFinalOutputFromUi() {
+      if (!currentRecord) return;
+
+      const fieldsToWrite = collectEditedFinalOutputFields();
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, fieldsToWrite]
+      ]);
+    }
+
+    function collectEditedFinalOutputFields() {
+      const fieldsToWrite = {
+        [outputFields.product_name]: getEditableValue("finalProductName"),
+        [outputFields.long_description]: getEditableValue("finalLongDescription"),
+        [outputFields.bullet_features]: getEditableValue("finalBullets"),
+        [outputFields.specs]: getEditableValue("finalSpecs"),
+        [outputFields.sources]: getEditableValue("finalSources"),
+        [outputFields.warnings]: getEditableValue("finalWarnings")
+      };
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.documentation)) {
+        fieldsToWrite[outputFields.documentation] = getEditableValue("finalDocumentation");
+      }
+
+      return fieldsToWrite;
     }
 
     async function logAiRun({ generationModel, qaModel, initialGeneration, qaAudit, generationResult, qaResult, userRevisionComment, relatedHtmlAttachments }) {
@@ -1571,6 +1765,7 @@
           `Response code: ${att.response_code}`,
           `Attachment ID: ${att.attachment_id}`,
           `Text chars sent: ${att.text ? att.text.length : 0}`,
+          `Document links found: ${Array.isArray(att.document_links) ? att.document_links.length : 0}`,
           att.error ? `Error: ${att.error}` : ""
         ].filter(Boolean).join(" | ");
       }).join("\n");
@@ -1604,9 +1799,25 @@
               bullet_features: { type: "array", items: { type: "string" } },
               specs: { type: "object", additionalProperties: { type: "string" } },
               sources: { type: "array", items: { type: "string" } },
+              documentation: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    type: { type: "string", enum: ["brochure", "instructions_for_use", "catalog", "datasheet", "manual", "pdf", "document"] },
+                    url: { type: "string" },
+                    source_page: { type: "string" },
+                    relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                    notes: { type: "string" }
+                  },
+                  required: ["title", "type", "url", "source_page", "relevance", "notes"],
+                  additionalProperties: false
+                }
+              },
               warnings: { type: "array", items: { type: "string" } }
             },
-            required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+            required: ["product_name", "long_description", "bullet_features", "specs", "sources", "documentation", "warnings"],
             additionalProperties: false
           }
         }
@@ -1631,7 +1842,7 @@
                   type: "object",
                   properties: {
                     severity: { type: "string", enum: ["low", "medium", "high"] },
-                    field: { type: "string", enum: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings", "general"] },
+                    field: { type: "string", enum: ["product_name", "long_description", "bullet_features", "specs", "sources", "documentation", "warnings", "general"] },
                     issue: { type: "string" },
                     evidence: { type: "string" },
                     suggested_fix: { type: "string" }
@@ -1673,9 +1884,10 @@
                   bullet_features: { type: "number" },
                   specs: { type: "number" },
                   sources: { type: "number" },
+                  documentation: { type: "number" },
                   warnings: { type: "number" }
                 },
-                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "documentation", "warnings"],
                 additionalProperties: false
               },
               safe_to_publish: { type: "boolean" },
@@ -1687,9 +1899,25 @@
                   bullet_features: { type: "array", items: { type: "string" } },
                   specs: { type: "object", additionalProperties: { type: "string" } },
                   sources: { type: "array", items: { type: "string" } },
+                  documentation: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        type: { type: "string", enum: ["brochure", "instructions_for_use", "catalog", "datasheet", "manual", "pdf", "document"] },
+                        url: { type: "string" },
+                        source_page: { type: "string" },
+                        relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                        notes: { type: "string" }
+                      },
+                      required: ["title", "type", "url", "source_page", "relevance", "notes"],
+                      additionalProperties: false
+                    }
+                  },
                   warnings: { type: "array", items: { type: "string" } }
                 },
-                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "warnings"],
+                required: ["product_name", "long_description", "bullet_features", "specs", "sources", "documentation", "warnings"],
                 additionalProperties: false
               }
             },
@@ -1717,6 +1945,17 @@
 
     function setText(id, value) {
       document.getElementById(id).textContent = value == null || value === "" ? "-" : String(value);
+    }
+
+    function setEditableValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = value == null ? "" : String(value);
+    }
+
+    function getEditableValue(id) {
+      const el = document.getElementById(id);
+      return el ? String(el.value || "") : "";
     }
 
     function escapeHtml(value) {
