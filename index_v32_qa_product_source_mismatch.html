@@ -1,0 +1,3239 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 12px;
+      font-size: 14px;
+      color: #1f2933;
+      background: #f6f7f9;
+    }
+
+    h2, h3, h4 {
+      margin: 0 0 8px;
+    }
+
+    .version-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #111827;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f6f7f9;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 12px;
+    }
+
+    .status {
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-top: 8px;
+      background: #eef2f7;
+    }
+
+    .ok { background: #e7f6ec; color: #0a6b2b; }
+    .warn { background: #fff7df; color: #7a5600; }
+    .error { background: #fdecec; color: #a40000; }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #c6ccd3;
+      background: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button.primary {
+      background: #1f6feb;
+      border-color: #1f6feb;
+      color: white;
+    }
+
+    button.danger {
+      background: #b42318;
+      border-color: #b42318;
+      color: white;
+    }
+
+    button.success {
+      background: #16833a;
+      border-color: #16833a;
+      color: white;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .card {
+      border: 1px solid #d8dee4;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 7px 12px;
+    }
+
+    .label {
+      font-weight: 700;
+      color: #4b5563;
+    }
+
+    .muted {
+      color: #6b7280;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      margin: 2px 4px 2px 0;
+      font-size: 12px;
+    }
+
+    textarea, input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #c6ccd3;
+      border-radius: 8px;
+      padding: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      background: white;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #f6f8fa;
+      border-radius: 8px;
+      padding: 10px;
+      max-height: 320px;
+      overflow: auto;
+      border: 1px solid #e1e4e8;
+    }
+
+    .output-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .field-card {
+      border: 1px solid #e1e4e8;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fbfcfe;
+    }
+
+    .field-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #374151;
+    }
+
+    .score {
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    a { color: #1f6feb; }
+
+    details summary {
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <h2>OpenRouter Product Enrichment <span class="version-badge">v32-qa-product-source-mismatch-2026-05-13</span></h2>
+
+    <div class="row">
+      <button id="reloadBtn">Reload Rows</button>
+      <button id="prevBtn">← Previous</button>
+      <button id="nextBtn">Next →</button>
+      <span id="position" class="muted">No rows loaded</span>
+    </div>
+
+    <div id="status" class="status">Loading v32-qa-product-source-mismatch-2026-05-13...</div>
+  </div>
+
+  <div class="card">
+    <h3>Product Card</h3>
+    <div class="grid">
+      <div class="label">Group SKU</div>
+      <div id="groupSku">-</div>
+
+      <div class="label">Product</div>
+      <div id="productLabel">-</div>
+
+      <div class="label">Variants</div>
+      <div id="variants">-</div>
+
+      <div class="label">Sources</div>
+      <div id="sourceLinks">-</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Source / Product Info</h3>
+    <details open>
+      <summary>Product Info (Plytix parent + variants only)</summary>
+      <pre id="productInfo">-</pre>
+    </details>
+
+    <details>
+      <summary>Additional Research Data (Naneth_Data only)</summary>
+      <pre id="researchData">-</pre>
+    </details>
+
+    <details>
+      <summary>Related HTML Attachments Sent To AI</summary>
+      <pre id="htmlAttachmentInfo">No HTML attachments loaded yet.</pre>
+    </details>
+
+    <details>
+      <summary>Compiled Prompt Sent To AI</summary>
+      <pre id="aiPrompt">Prompt is compiled at run time from resolved parent data.</pre>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3>Actions</h3>
+    <div class="row">
+      <button id="generateBtn" class="primary">Generate + Split QA</button>
+      <button id="approveBtn" class="success">Save Edits + Approve Result</button>
+      <button id="denyBtn" class="danger">Deny + Rerun With Comment</button>
+    </div>
+
+    <p class="muted">
+      Deny comment is sent back to AI with the previous output, QA results, repaired output, and related HTML attachment text.
+      FINAL_LONG_DESCRIPTION, FINAL_BULLETS, FINAL_CONTENTS, FINAL_SPECS, and FINAL_DOCUMENTATION are editable below before you save/approve.
+    </p>
+
+    <textarea id="denyComment" placeholder="Example: Remove unsupported accuracy wording. Product name should stay closer to source. Specs need source support."></textarea>
+  </div>
+
+  <div class="card">
+    <h3>Current Final Output Fields</h3>
+    <div class="output-grid">
+      <div class="field-card">
+        <div class="field-title">FINAL_PRODUCT_NAME</div>
+        <input id="finalProductName" type="text" placeholder="Final product name" />
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_LONG_DESCRIPTION <span class="muted">(editable)</span></div>
+        <textarea id="finalLongDescription" placeholder="Final long description"></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_BULLETS <span class="muted">(editable, one per line)</span></div>
+        <textarea id="finalBullets" placeholder="One bullet per line"></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_CONTENTS <span class="muted">(editable, JSON or one item per line)</span></div>
+        <textarea id="finalContents" placeholder='Example: [{"item":"Cord Clamp","quantity":1}]'></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_SPECS <span class="muted">(editable JSON object)</span></div>
+        <textarea id="finalSpecs" placeholder='Example: {"sterility":"Non Sterile","pack_qty":100,"material":"Nitrile","latex_free":true}'></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_SOURCES</div>
+        <textarea id="finalSources" placeholder="One source URL per line"></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_DOCUMENTATION <span class="muted">(editable)</span></div>
+        <textarea id="finalDocumentation" placeholder="Documentation links / notes"></textarea>
+      </div>
+
+      <div class="field-card">
+        <div class="field-title">FINAL_WARNINGS</div>
+        <textarea id="finalWarnings" placeholder="Warnings / review notes"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Latest Generated Output</h3>
+    <pre id="generationOutput">No generation yet.</pre>
+  </div>
+
+  <div class="card">
+    <h3>Split QA / Final Trust Check</h3>
+    <div id="qaSummary" class="muted">No QA result yet.</div>
+    <pre id="qaOutput">No QA result yet.</pre>
+  </div>
+
+  <script>
+
+    const WIDGET_VERSION = "v32-qa-product-source-mismatch-2026-05-13";
+    console.log("Loaded widget version", WIDGET_VERSION);
+    window.addEventListener("error", function(event) {
+      const message = event && event.message ? event.message : "Unknown widget error";
+      const el = document.getElementById("status");
+      if (el) {
+        el.textContent = "Widget error: " + message;
+        el.className = "status error";
+      }
+      console.error("Widget error", event.error || event);
+    });
+
+    window.addEventListener("unhandledrejection", function(event) {
+      const reason = event && event.reason ? event.reason : "Unknown async widget error";
+      const message = reason && reason.message ? reason.message : String(reason);
+      const el = document.getElementById("status");
+      if (el) {
+        el.textContent = "Widget async error: " + message;
+        el.className = "status error";
+      }
+      console.error("Widget async error", reason);
+    });
+
+    const PRODUCT_TABLE_ID = "Naneth_AI_Review";
+    const HTML_TABLE_ID = "Naneth_HTML";
+    const RUNS_TABLE_ID = "Naneth_AI_Runs";
+    const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+    const MAX_HTML_CHARS_PER_ATTACHMENT = 20000;
+    const MAX_TOTAL_HTML_CHARS = 60000;
+
+    const outputFields = {
+      product_name: "FINAL_PRODUCT_NAME",
+      long_description: "FINAL_LONG_DESCRIPTION",
+      bullet_features: "FINAL_BULLETS",
+      specs: "FINAL_SPECS",
+      contents: "FINAL_CONTENTS",
+      sources: "FINAL_SOURCES",
+      warnings: "FINAL_WARNINGS",
+      documentation: "FINAL_DOCUMENTATION"
+    };
+
+    let rows = [];
+    let currentIndex = 0;
+    let currentRecord = null;
+    let latestGeneration = null;
+    let latestQa = null;
+    let latestInitialGeneration = null;
+    let latestQaAudit = null;
+    let latestRepairedGeneration = null;
+    let latestFinalQa = null;
+    let latestRunRowId = null;
+    let latestRelatedHtmlAttachments = [];
+    let latestVariantEvidence = [];
+    let latestSourceResearch = null;
+
+    grist.ready({ requiredAccess: "full" });
+
+    document.getElementById("reloadBtn").addEventListener("click", loadRows);
+    document.getElementById("prevBtn").addEventListener("click", previousRow);
+    document.getElementById("nextBtn").addEventListener("click", nextRow);
+    document.getElementById("generateBtn").addEventListener("click", () => runFullAiFlow(""));
+    document.getElementById("denyBtn").addEventListener("click", denyAndRerun);
+    document.getElementById("approveBtn").addEventListener("click", approveCurrentResult);
+
+    loadRows();
+
+    async function loadRows() {
+      try {
+        setStatus("Loading product rows from Naneth_AI_Review...", "warn");
+
+        const table = await grist.docApi.fetchTable(PRODUCT_TABLE_ID);
+        rows = tableToRecords(table);
+
+        rows = rows.filter(row => {
+          return row.GROUP_SKU || row.RESOLVED_PARENT_TITLE || row.PARENT_LABEL || row.CLEAN_PRODUCT_INFO || row.PRODUCT_INFO;
+        });
+
+        if (!rows.length) {
+          currentRecord = null;
+          renderCurrentRecord();
+          setStatus("No product rows found.", "error");
+          return;
+        }
+
+        const readyIndex = rows.findIndex(row =>
+          String(row.REVIEW_STATUS || "").toLowerCase().includes("ready") ||
+          row.NEEDS_ENRICHMENT === true
+        );
+
+        currentIndex = readyIndex >= 0 ? readyIndex : 0;
+        currentRecord = rows[currentIndex];
+
+        clearLatestResults();
+        renderCurrentRecord();
+        setStatus(`Loaded ${rows.length} product rows.`, "ok");
+
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      }
+    }
+
+    function tableToRecords(table) {
+      const ids = table.id || [];
+      const colIds = Object.keys(table).filter(k => k !== "id");
+      const records = [];
+
+      for (let i = 0; i < ids.length; i++) {
+        const record = { id: ids[i] };
+
+        for (const colId of colIds) {
+          record[colId] = table[colId]?.[i];
+        }
+
+        records.push(record);
+      }
+
+      return records;
+    }
+
+    function previousRow() {
+      if (!rows.length) return;
+      currentIndex = Math.max(0, currentIndex - 1);
+      currentRecord = rows[currentIndex];
+      clearLatestResults();
+      renderCurrentRecord();
+    }
+
+    function nextRow() {
+      if (!rows.length) return;
+      currentIndex = Math.min(rows.length - 1, currentIndex + 1);
+      currentRecord = rows[currentIndex];
+      clearLatestResults();
+      renderCurrentRecord();
+    }
+
+    function clearLatestResults() {
+      latestGeneration = null;
+      latestQa = null;
+      latestInitialGeneration = null;
+      latestQaAudit = null;
+      latestRepairedGeneration = null;
+      latestFinalQa = null;
+      latestRunRowId = null;
+      latestRelatedHtmlAttachments = [];
+      latestVariantEvidence = [];
+      document.getElementById("generationOutput").textContent = "No generation yet.";
+      document.getElementById("qaSummary").textContent = "No QA result yet.";
+      document.getElementById("qaOutput").textContent = "No QA result yet.";
+      document.getElementById("htmlAttachmentInfo").textContent = "No HTML attachments loaded yet.";
+      document.getElementById("denyComment").value = "";
+    }
+
+    function renderCurrentRecord() {
+      const record = currentRecord;
+
+      document.getElementById("position").textContent = rows.length
+        ? `Product ${currentIndex + 1} of ${rows.length}`
+        : "No rows loaded";
+
+      document.getElementById("prevBtn").disabled = !rows.length || currentIndex === 0;
+      document.getElementById("nextBtn").disabled = !rows.length || currentIndex === rows.length - 1;
+
+      if (!record) {
+        setText("groupSku", "-");
+        setText("productLabel", "-");
+        setText("productInfo", "-");
+        setText("researchData", "-");
+        setText("aiPrompt", "-");
+        setEditableValue("finalProductName", "");
+        setEditableValue("finalLongDescription", "");
+        setEditableValue("finalBullets", "");
+        setEditableValue("finalContents", "");
+        setEditableValue("finalSpecs", "");
+        setEditableValue("finalSources", "");
+        setEditableValue("finalDocumentation", "");
+        setEditableValue("finalWarnings", "");
+        return;
+      }
+
+      setText("groupSku", record.GROUP_SKU || "-");
+      setText("productLabel", record.RESOLVED_PARENT_TITLE || record.PARENT_LABEL || extractTitle(record.CLEAN_PRODUCT_INFO) || extractTitle(record.PRODUCT_INFO) || "-");
+      renderVariants(record);
+      renderSources(record);
+
+      setText("productInfo", "Loading Plytix parent/variant product data...");
+      setText("researchData", "Loading Naneth_Data research rows...");
+      updateSourceProductInfoPanels(record);
+      setText("aiPrompt", buildGenerationPrompt({
+        productRecord: record,
+        relatedHtmlAttachments: [],
+        variantEvidence: [],
+        userRevisionComment: "",
+        previousGeneration: null,
+        previousQa: null
+      }));
+
+      setEditableValue("finalProductName", record.FINAL_PRODUCT_NAME || "");
+      setEditableValue("finalLongDescription", record.FINAL_LONG_DESCRIPTION || "");
+      setEditableValue("finalBullets", record.FINAL_BULLETS || "");
+      setEditableValue("finalContents", record.FINAL_CONTENTS || "");
+      setEditableValue("finalSpecs", record.FINAL_SPECS || "");
+      setEditableValue("finalSources", record.FINAL_SOURCES || "");
+      setEditableValue("finalDocumentation", record.FINAL_DOCUMENTATION || "");
+      setEditableValue("finalWarnings", record.FINAL_WARNINGS || "");
+    }
+
+    function renderVariants(record) {
+      const variantsText = record.VARIANT_SKUS || record.SUBVARIANT_SKUS || "";
+      const variants = String(variantsText)
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      document.getElementById("variants").innerHTML = variants.length
+        ? variants.map(v => `<span class="pill">${escapeHtml(v)}</span>`).join("")
+        : "-";
+    }
+
+    function renderSources(record) {
+      const urls = String(record.SOURCE_URLS || "")
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      document.getElementById("sourceLinks").innerHTML = urls.length
+        ? urls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`).join("")
+        : "-";
+    }
+
+    function extractTitle(productInfo) {
+      const text = String(productInfo || "");
+      const match = text.match(/^Title:\s*(.+)$/m);
+      return match ? match[1].trim() : "";
+    }
+
+    async function runFullAiFlow(userRevisionComment) {
+      if (!currentRecord) {
+        setStatus("No product row selected.", "error");
+        return;
+      }
+
+      setButtonsDisabled(true);
+
+      try {
+        const env = await loadEnv();
+        const apiKey = env.OPENROUTER_API_KEY;
+        const extractionModel = env.OPENROUTER_GEMINI_URL_MODEL || env.OPENROUTER_GEMINI_MODEL || env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+        const generationModel = env.OPENROUTER_GEMINI_GENERATION_MODEL || env.OPENROUTER_GEMINI_MODEL || env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+        const qaModel = env.OPENROUTER_GEMINI_QA_MODEL || env.OPENROUTER_QA_MODEL || generationModel;
+
+        if (!apiKey) {
+          throw new Error("Missing OPENROUTER_API_KEY in Env table.");
+        }
+
+        setStatus(`Preparing product context for ${currentRecord.GROUP_SKU || currentRecord.id}...`, "warn");
+
+        latestRelatedHtmlAttachments = await loadRelatedHtmlAttachments(currentRecord);
+        renderHtmlAttachmentInfo(latestRelatedHtmlAttachments);
+        latestVariantEvidence = await loadVariantEvidence(currentRecord);
+
+        const readableHtmlCount = latestRelatedHtmlAttachments.filter(att => att.text && att.text.trim()).length;
+        setStatus(
+          `Found ${latestRelatedHtmlAttachments.length} related HTML row(s), ${readableHtmlCount} readable HTML attachment(s), and ${latestVariantEvidence.length} variant evidence row(s). Step 1/3: Gemini URL Context extraction...`,
+          "warn"
+        );
+
+        latestSourceResearch = await runGeminiUrlExtractionRequest({
+          apiKey,
+          model: extractionModel,
+          productRecord: currentRecord,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
+          variantEvidence: latestVariantEvidence,
+          env
+        });
+
+        document.getElementById("generationOutput").textContent =
+          JSON.stringify({ gemini_url_extraction: latestSourceResearch }, null, 2);
+
+        if (!hasUsableSourceEvidence(latestSourceResearch, latestRelatedHtmlAttachments)) {
+          const perplexityModel = env.OPENROUTER_PERPLEXITY_MODEL || env.PERPLEXITY_MODEL || "perplexity/sonar";
+          setStatus("Gemini URL extraction produced no usable evidence. Fallback: Perplexity URL-limited extraction...", "warn");
+
+          const perplexitySourceResearch = await runPerplexityUrlExtractionRequest({
+            apiKey,
+            model: perplexityModel,
+            productRecord: currentRecord,
+            variantEvidence: latestVariantEvidence,
+            env
+          });
+
+          latestSourceResearch = mergeSourceExtractionFallback(latestSourceResearch, perplexitySourceResearch);
+
+          document.getElementById("generationOutput").textContent =
+            JSON.stringify({
+              gemini_url_extraction: latestSourceResearch.gemini_url_extraction || null,
+              perplexity_url_extraction: latestSourceResearch.perplexity_url_extraction || perplexitySourceResearch,
+              active_source_extraction: latestSourceResearch
+            }, null, 2);
+        }
+
+        if (!hasUsableSourceEvidence(latestSourceResearch, latestRelatedHtmlAttachments)) {
+          latestInitialGeneration = buildNoEvidenceProductOutput(currentRecord, latestSourceResearch);
+          latestFinalQa = buildNoEvidenceQa(latestInitialGeneration, latestSourceResearch);
+          latestQaAudit = latestFinalQa;
+          latestQa = latestFinalQa;
+          latestRepairedGeneration = latestInitialGeneration;
+          latestGeneration = latestInitialGeneration;
+
+          renderQa(latestFinalQa);
+
+          document.getElementById("generationOutput").textContent =
+            JSON.stringify({
+              gemini_url_extraction: latestSourceResearch,
+              field_split_output: latestInitialGeneration,
+              final_qa_and_repair: latestFinalQa,
+              final_output: latestGeneration
+            }, null, 2);
+
+          setStatus("No usable source evidence was extracted. Failing closed without generating unsourced copy.", "error");
+
+          await writeGenerationToReviewRow(latestGeneration, latestQa);
+          await logAiRun({
+            generationModel,
+            qaModel,
+            initialGeneration: latestInitialGeneration,
+            qaAudit: latestFinalQa,
+            generationResult: latestGeneration,
+            qaResult: latestQa,
+            userRevisionComment,
+            relatedHtmlAttachments: latestRelatedHtmlAttachments,
+            variantEvidence: latestVariantEvidence,
+            sourceResearch: latestSourceResearch
+          });
+          await refreshCurrentRow();
+          return;
+        }
+
+        setStatus("Step 2/3: Gemini is splitting extracted evidence across final product fields...", "warn");
+
+        latestInitialGeneration = await runGenerationRequest({
+          apiKey,
+          model: generationModel,
+          productRecord: currentRecord,
+          userRevisionComment,
+          previousGeneration: latestGeneration,
+          previousQa: latestQa,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
+          variantEvidence: latestVariantEvidence,
+          sourceResearch: latestSourceResearch,
+          env
+        });
+
+        document.getElementById("generationOutput").textContent =
+          JSON.stringify({ gemini_url_extraction: latestSourceResearch, field_split_output: latestInitialGeneration }, null, 2);
+
+        setStatus("Step 3/4: QA accuracy check is verifying claims against supplied evidence...", "warn");
+
+        latestQaAudit = await runAccuracyQaRequest({
+          apiKey,
+          model: qaModel,
+          productRecord: currentRecord,
+          generationResult: latestInitialGeneration,
+          userRevisionComment,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
+          variantEvidence: latestVariantEvidence,
+          sourceResearch: latestSourceResearch,
+          env
+        });
+
+        const accuracyRepairedOutput = sanitizeFinalProductOutput(
+          latestQaAudit.recommended_changes || latestInitialGeneration,
+          latestSourceResearch
+        );
+        if (latestQaAudit && latestQaAudit.recommended_changes) latestQaAudit.recommended_changes = accuracyRepairedOutput;
+
+        document.getElementById("generationOutput").textContent =
+          JSON.stringify({
+            gemini_url_extraction: latestSourceResearch,
+            field_split_output: latestInitialGeneration,
+            qa_accuracy: latestQaAudit,
+            accuracy_repaired_output: accuracyRepairedOutput
+          }, null, 2);
+
+        setStatus("Step 4/4: QA cleanliness check is enforcing field placement, variant exclusions and customer relevance...", "warn");
+
+        latestFinalQa = await runCleanlinessQaRequest({
+          apiKey,
+          model: qaModel,
+          productRecord: currentRecord,
+          generationResult: accuracyRepairedOutput,
+          previousQaAudit: latestQaAudit,
+          userRevisionComment,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
+          variantEvidence: latestVariantEvidence,
+          sourceResearch: latestSourceResearch,
+          env
+        });
+
+        latestQa = latestFinalQa;
+        latestRepairedGeneration = latestFinalQa.recommended_changes || accuracyRepairedOutput;
+        latestGeneration = sanitizeFinalProductOutput(latestRepairedGeneration, latestSourceResearch);
+        if (latestFinalQa && latestFinalQa.recommended_changes) latestFinalQa.recommended_changes = latestGeneration;
+
+        renderQa(latestFinalQa);
+
+        document.getElementById("generationOutput").textContent =
+          JSON.stringify({
+            gemini_url_extraction: latestSourceResearch,
+            field_split_output: latestInitialGeneration,
+            qa_accuracy: latestQaAudit,
+            qa_cleanliness: latestFinalQa,
+            final_output: latestGeneration
+          }, null, 2);
+
+        setStatus("Writing final QA-repaired output back to Grist...", "warn");
+
+        await writeGenerationToReviewRow(latestGeneration, latestQa);
+        await logAiRun({
+          generationModel,
+          qaModel,
+          initialGeneration: latestInitialGeneration,
+          qaAudit: latestFinalQa,
+          generationResult: latestGeneration,
+          qaResult: latestQa,
+          userRevisionComment,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
+          variantEvidence: latestVariantEvidence,
+          sourceResearch: latestSourceResearch
+        });
+
+        await refreshCurrentRow();
+
+        const score = Number(latestQa.trust_score || 0);
+        const recommendation = latestQa.publish_recommendation || "review";
+
+        if (recommendation === "publish" && score >= 90) {
+          setStatus(`Done. Final QA trust score ${score}/100. Recommended: publish.`, "ok");
+        } else if (recommendation === "reject" || score < 50) {
+          setStatus(`Done. Final QA trust score ${score}/100. Recommended: reject.`, "error");
+        } else {
+          setStatus(`Done. Final QA trust score ${score}/100. Recommended: review.`, "warn");
+        }
+
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function denyAndRerun() {
+      const comment = document.getElementById("denyComment").value.trim();
+
+      if (!comment) {
+        setStatus("Type a denial/revision comment first.", "warn");
+        return;
+      }
+
+      await saveRejectMessage(comment);
+      await runFullAiFlow(comment);
+    }
+
+    async function loadEnv() {
+      const table = await grist.docApi.fetchTable("Env");
+      const env = {};
+      const ids = table.id || [];
+
+      for (let i = 0; i < ids.length; i++) {
+        const key = table.Key?.[i];
+        const value = table.Value?.[i];
+
+        if (key) env[String(key).trim()] = value;
+      }
+
+      return env;
+    }
+
+    async function loadRelatedHtmlAttachments(productRecord) {
+      const skuSet = buildSkuSet(productRecord);
+      const expectedHtmlRowIds = normaliseRefList(productRecord.HTML_ROWS);
+
+      let htmlRows = [];
+
+      try {
+        const htmlTable = await grist.docApi.fetchTable(HTML_TABLE_ID);
+        htmlRows = tableToRecords(htmlTable);
+      } catch (err) {
+        console.warn("Could not fetch Naneth_HTML table.", err);
+        return [{
+          html_row_id: "",
+          product_sku: "",
+          url: "",
+          response_code: "",
+          attachment_id: "",
+          error: "Could not fetch Naneth_HTML table: " + (err.message || String(err)),
+          text: ""
+        }];
+      }
+
+      const relatedRows = htmlRows.filter(row => {
+        const rowSku = String(row.PRODUCT_SKU || "").trim();
+        const rowIdMatches = expectedHtmlRowIds.has(Number(row.id));
+        const skuMatches = rowSku && skuSet.has(rowSku);
+        return rowIdMatches || skuMatches;
+      });
+
+      const attachments = [];
+      let totalChars = 0;
+
+      for (const row of relatedRows) {
+        const fileCell = getAttachmentCell(row);
+        const attachmentIds = normaliseAttachmentIds(fileCell);
+
+        if (!attachmentIds.length) {
+          attachments.push({
+            html_row_id: row.id,
+            product_sku: row.PRODUCT_SKU || "",
+            url: row.URL || "",
+            response_code: row.RESPONSE_CODE || "",
+            attachment_id: "",
+            error: "Related Naneth_HTML row has no FILE_ATTACHED attachment IDs.",
+            text: ""
+          });
+          continue;
+        }
+
+        for (const attachmentId of attachmentIds) {
+          try {
+            if (totalChars >= MAX_TOTAL_HTML_CHARS) {
+              attachments.push({
+                html_row_id: row.id,
+                product_sku: row.PRODUCT_SKU || "",
+                url: row.URL || "",
+                response_code: row.RESPONSE_CODE || "",
+                attachment_id: attachmentId,
+                attachment_url: await getAttachmentUrlSafely(attachmentId),
+                error: "Skipped because total HTML evidence character limit was reached.",
+                text: ""
+              });
+              continue;
+            }
+
+            const attachmentUrl = await getAttachmentUrlSafely(attachmentId);
+            const rawReadableText = await readAttachmentAsText(attachmentId, row.URL || "");
+            const documentLinks = extractDocumentLinksFromText(rawReadableText, row.URL || "");
+            const remainingChars = Math.max(0, MAX_TOTAL_HTML_CHARS - totalChars);
+            const text = trimForPrompt(rawReadableText, Math.min(MAX_HTML_CHARS_PER_ATTACHMENT, remainingChars));
+            totalChars += text.length;
+
+            attachments.push({
+              html_row_id: row.id,
+              product_sku: row.PRODUCT_SKU || "",
+              url: row.URL || "",
+              response_code: row.RESPONSE_CODE || "",
+              attachment_id: attachmentId,
+              attachment_url: attachmentUrl,
+              error: "",
+              text,
+              document_links: documentLinks
+            });
+          } catch (err) {
+            attachments.push({
+              html_row_id: row.id,
+              product_sku: row.PRODUCT_SKU || "",
+              url: row.URL || "",
+              response_code: row.RESPONSE_CODE || "",
+              attachment_id: attachmentId,
+              attachment_url: await getAttachmentUrlSafely(attachmentId),
+              error: err.message || String(err),
+              text: ""
+            });
+          }
+        }
+      }
+
+      return attachments;
+    }
+
+    function buildSkuSet(productRecord) {
+      const values = [
+        productRecord.GROUP_SKU,
+        productRecord.VARPAR_SOLOPAR,
+        productRecord.VARIANT_SKUS,
+        productRecord.SUBVARIANT_SKUS
+      ];
+
+      const skuSet = new Set();
+
+      for (const value of values) {
+        String(value || "")
+          .split(/\r?\n|,|;/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .forEach(sku => skuSet.add(sku));
+      }
+
+      return skuSet;
+    }
+
+    function normaliseRefList(value) {
+      const ids = new Set();
+
+      if (!value) return ids;
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item === "L") continue;
+          const n = Number(item && typeof item === "object" ? (item.id || item.rowId) : item);
+          if (Number.isFinite(n)) ids.add(n);
+        }
+        return ids;
+      }
+
+      if (typeof value === "number") {
+        ids.add(value);
+        return ids;
+      }
+
+      if (typeof value === "string") {
+        const matches = value.match(/-?\d+/g) || [];
+        matches
+          .map(x => Number(x.trim()))
+          .filter(n => Number.isFinite(n))
+          .forEach(n => ids.add(n));
+      }
+
+      return ids;
+    }
+
+
+    function getAttachmentCell(row) {
+      const preferred = [
+        "FILE_ATTACHED",
+        "File_Attached",
+        "file_attached",
+        "ATTACHMENT",
+        "ATTACHMENTS",
+        "Attachment",
+        "Attachments",
+        "HTML_FILE",
+        "Html_File",
+        "FILE",
+        "File"
+      ];
+
+      for (const key of preferred) {
+        if (Object.prototype.hasOwnProperty.call(row, key) && row[key]) return row[key];
+      }
+
+      for (const [key, value] of Object.entries(row || {})) {
+        const lower = String(key).toLowerCase();
+        if ((lower.includes("attach") || lower.includes("file")) && value) return value;
+      }
+
+      return null;
+    }
+
+    function normaliseAttachmentIds(fileCell) {
+      if (!fileCell) return [];
+
+      if (Array.isArray(fileCell)) {
+        return fileCell
+          .map(item => {
+            if (item === "L") return null;
+            if (typeof item === "number") return item;
+            if (typeof item === "string") return Number(item);
+            if (item && typeof item === "object") return Number(item.id || item.rowId || item.attachmentId);
+            return null;
+          })
+          .filter(id => Number.isFinite(id));
+      }
+
+      if (typeof fileCell === "number") return [fileCell];
+
+      if (typeof fileCell === "string") {
+        const matches = fileCell.match(/-?\d+/g) || [];
+        return matches
+          .map(x => Number(x.trim()))
+          .filter(id => Number.isFinite(id));
+      }
+
+      if (typeof fileCell === "object") {
+        if (Array.isArray(fileCell.items)) return normaliseAttachmentIds(fileCell.items);
+        if (fileCell.id || fileCell.rowId || fileCell.attachmentId) {
+          return [Number(fileCell.id || fileCell.rowId || fileCell.attachmentId)].filter(id => Number.isFinite(id));
+        }
+      }
+
+      return [];
+    }
+
+    let attachmentAccessTokenInfo = null;
+    let attachmentAccessTokenPromise = null;
+
+    async function getAttachmentAccessTokenInfo() {
+      if (attachmentAccessTokenInfo && attachmentAccessTokenInfo.token && attachmentAccessTokenInfo.baseUrl) {
+        return attachmentAccessTokenInfo;
+      }
+
+      if (!attachmentAccessTokenPromise) {
+        attachmentAccessTokenPromise = grist.docApi.getAccessToken({ readOnly: true })
+          .then(info => {
+            if (!info || !info.token || !info.baseUrl) {
+              throw new Error("grist.docApi.getAccessToken did not return token/baseUrl.");
+            }
+            attachmentAccessTokenInfo = info;
+            return info;
+          })
+          .finally(() => {
+            attachmentAccessTokenPromise = null;
+          });
+      }
+
+      return attachmentAccessTokenPromise;
+    }
+
+    async function getAttachmentUrlSafely(attachmentId) {
+      try {
+        if (!attachmentId) return "";
+
+        // Older Grist examples sometimes used getAttachmentUrl(), but many widget
+        // environments do not expose it. The supported route is to request a
+        // short-lived document access token and build the REST attachment URL.
+        if (grist.docApi.getAttachmentUrl) {
+          return await grist.docApi.getAttachmentUrl(attachmentId);
+        }
+
+        const tokenInfo = await getAttachmentAccessTokenInfo();
+        return `${String(tokenInfo.baseUrl).replace(/\/$/, "")}/attachments/${encodeURIComponent(attachmentId)}/download?auth=${encodeURIComponent(tokenInfo.token)}`;
+      } catch (err) {
+        console.warn("Could not get attachment URL", attachmentId, err);
+        return "";
+      }
+    }
+
+    async function readAttachmentAsText(attachmentId, sourcePageUrl) {
+      const url = await getAttachmentUrlSafely(attachmentId);
+
+      if (!url) {
+        throw new Error(`Could not build attachment download URL for attachment ${attachmentId}.`);
+      }
+
+      const response = await fetch(url, {
+        method: "GET",
+        credentials: "omit"
+      });
+
+      if (!response.ok) {
+        throw new Error(`Could not fetch attachment ${attachmentId}: HTTP ${response.status}`);
+      }
+
+      const rawText = await response.text();
+      return htmlToReadableText(rawText, sourcePageUrl);
+    }
+
+    function htmlToReadableText(html, sourcePageUrl) {
+      const raw = String(html || "");
+
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(raw, "text/html");
+
+        doc.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+
+        const title = doc.querySelector("title")?.textContent || "";
+        const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute("content") || "";
+        const h1 = doc.querySelector("h1")?.textContent || "";
+        const bodyText = doc.body ? doc.body.innerText : doc.documentElement.innerText;
+
+        const pdfLinks = mergeDocumentLinks(
+          extractPdfLinksFromDocument(doc, sourcePageUrl),
+          extractPdfLinksFromRawHtml(raw, sourcePageUrl)
+        );
+        const pdfLinkText = formatPdfLinksForPrompt(pdfLinks);
+
+        return [
+          title ? `HTML title: ${cleanWhitespace(title)}` : "",
+          metaDescription ? `Meta description: ${cleanWhitespace(metaDescription)}` : "",
+          h1 ? `H1: ${cleanWhitespace(h1)}` : "",
+          pdfLinkText,
+          cleanWhitespace(bodyText || raw)
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      } catch (err) {
+        return cleanWhitespace(raw);
+      }
+    }
+
+    function extractPdfLinksFromDocument(doc, sourcePageUrl) {
+      const links = [];
+
+      doc.querySelectorAll("a[href]").forEach(anchor => {
+        const href = String(anchor.getAttribute("href") || "").trim();
+        const text = cleanWhitespace(anchor.textContent || anchor.getAttribute("title") || anchor.getAttribute("aria-label") || "");
+        if (!href) return;
+
+        const lowerHref = href.toLowerCase();
+        const lowerText = text.toLowerCase();
+        if (!isDocumentationLikeLink(lowerHref, lowerText)) return;
+
+        links.push({
+          title: text || guessDocumentTitleFromUrl(href),
+          text: text || "[no link text]",
+          url: absolutizeUrl(href, sourcePageUrl),
+          raw_href: href,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(href, text)
+        });
+      });
+
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function extractPdfLinksFromRawHtml(rawHtml, sourcePageUrl) {
+      const raw = String(rawHtml || "");
+      const links = [];
+      const urlRegex = /https?:[^\s"'<>]+?\.pdf(?:\?[^\s"'<>]*)?/gi;
+      let match;
+
+      while ((match = urlRegex.exec(raw)) !== null) {
+        const url = match[0].replace(/&amp;/g, "&");
+        links.push({
+          title: guessDocumentTitleFromUrl(url),
+          text: guessDocumentTitleFromUrl(url),
+          url: absolutizeUrl(url, sourcePageUrl),
+          raw_href: url,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(url, "")
+        });
+      }
+
+      const hrefRegex = /href=["']([^"']*(?:pdf|brochure|ifu|instructions|manual|datasheet|data-sheet)[^"']*)["'][^>]*>([\s\S]{0,300}?)<\/a>/gi;
+      while ((match = hrefRegex.exec(raw)) !== null) {
+        const href = match[1].replace(/&amp;/g, "&");
+        const text = cleanWhitespace(match[2].replace(/<[^>]+>/g, " ")) || guessDocumentTitleFromUrl(href);
+        links.push({
+          title: text,
+          text,
+          url: absolutizeUrl(href, sourcePageUrl),
+          raw_href: href,
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(href, text)
+        });
+      }
+
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function isDocumentationLikeLink(lowerHref, lowerText) {
+      return (
+        lowerHref.includes(".pdf") ||
+        lowerHref.includes("brochure") ||
+        lowerHref.includes("ifu") ||
+        lowerHref.includes("instructions") ||
+        lowerHref.includes("manual") ||
+        lowerHref.includes("datasheet") ||
+        lowerHref.includes("data-sheet") ||
+        lowerText.includes("pdf") ||
+        lowerText.includes("brochure") ||
+        lowerText.includes("ifu") ||
+        lowerText.includes("instructions") ||
+        lowerText.includes("manual") ||
+        lowerText.includes("datasheet") ||
+        lowerText.includes("data sheet") ||
+        lowerText.includes("catalog") ||
+        lowerText.includes("catalogue")
+      );
+    }
+
+    function guessDocumentType(url, text) {
+      const value = (String(url || "") + " " + String(text || "")).toLowerCase();
+      if (value.includes("ifu") || value.includes("instruction")) return "instructions_for_use";
+      if (value.includes("brochure")) return "brochure";
+      if (value.includes("catalog") || value.includes("catalogue")) return "catalog";
+      if (value.includes("datasheet") || value.includes("data-sheet") || value.includes("data sheet")) return "datasheet";
+      if (value.includes("manual")) return "manual";
+      if (value.includes("pdf")) return "pdf";
+      return "document";
+    }
+
+    function guessDocumentTitleFromUrl(url) {
+      try {
+        const u = new URL(String(url || ""), "https://example.com");
+        const last = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "Document");
+        return last.replace(/[-_]+/g, " ").replace(/\.pdf$/i, "").trim() || "Document";
+      } catch (err) {
+        return String(url || "Document").split("/").pop().replace(/[-_]+/g, " ").replace(/\.pdf$/i, "").trim() || "Document";
+      }
+    }
+
+    function mergeDocumentLinks(...groups) {
+      const seen = new Set();
+      const out = [];
+      for (const group of groups) {
+        for (const link of (group || [])) {
+          const url = String(link.url || link.raw_href || "").trim();
+          if (!url) continue;
+          const key = url.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(link);
+        }
+      }
+      return out;
+    }
+
+    function absolutizeUrl(href, sourcePageUrl) {
+      try {
+        if (sourcePageUrl) return new URL(href, sourcePageUrl).href;
+        return new URL(href).href;
+      } catch (err) {
+        return href;
+      }
+    }
+
+    function formatPdfLinksForPrompt(pdfLinks) {
+      if (!pdfLinks || !pdfLinks.length) return "";
+
+      return [
+        "PDF/DOCUMENT LINKS FOUND ON SOURCE PAGE:",
+        "The AI must decide whether each PDF/document link appears to match this product family before using it as evidence or adding it to sources. Do not include unrelated PDFs in sources.",
+        ...pdfLinks.map((link, index) => `${index + 1}. Text: ${link.text}\n   URL: ${link.url}`)
+      ].join("\n");
+    }
+
+    function cleanWhitespace(text) {
+      return String(text || "")
+        .replace(/\r/g, "")
+        .replace(/[\t ]+/g, " ")
+        .replace(/\n\s*\n\s*\n+/g, "\n\n")
+        .trim();
+    }
+
+    function trimForPrompt(text, maxChars) {
+      const value = String(text || "");
+      if (value.length <= maxChars) return value;
+      return value.slice(0, maxChars) + "\n\n[TRUNCATED FOR PROMPT]";
+    }
+
+    function extractDocumentLinksFromText(text, sourcePageUrl) {
+      const value = String(text || "");
+      const links = [];
+      const urlRegex = /https?:[^\s"'<>]+?\.pdf(?:\?[^\s"'<>]*)?/gi;
+      let match;
+      while ((match = urlRegex.exec(value)) !== null) {
+        const url = match[0];
+        links.push({
+          title: guessDocumentTitleFromUrl(url),
+          text: guessDocumentTitleFromUrl(url),
+          url: absolutizeUrl(url, sourcePageUrl),
+          source_page: sourcePageUrl || "",
+          type: guessDocumentType(url, "")
+        });
+      }
+      return mergeDocumentLinks(links).slice(0, 50);
+    }
+
+    function collectDocumentLinksFromAttachments(attachments) {
+      const all = [];
+      for (const att of (attachments || [])) {
+        if (Array.isArray(att.document_links)) {
+          for (const link of att.document_links) {
+            all.push({ ...link, source_page: link.source_page || att.url || "" });
+          }
+        }
+      }
+      return mergeDocumentLinks(all);
+    }
+
+    function formatDocumentLinksForPrompt(attachments) {
+      const links = collectDocumentLinksFromAttachments(attachments);
+      if (!links.length) return "No PDF/document links found in related HTML attachments.";
+      return [
+        "PDF/DOCUMENT LINKS EXTRACTED FROM HTML ATTACHMENTS:",
+        "For each link, decide whether it matches the parent product family. Include matching documents in the documentation output. Do not include unrelated generic catalogs unless they contain product-specific support.",
+        ...links.map((link, index) => `${index + 1}. Title: ${link.title || link.text || "Document"}\n   Type: ${link.type || "document"}\n   URL: ${link.url}\n   Found on: ${link.source_page || "unknown source page"}`)
+      ].join("\n");
+    }
+
+    function formatHtmlAttachmentsForPrompt(attachments) {
+      if (!attachments || !attachments.length) {
+        return "No related HTML attachments found.";
+      }
+
+      return attachments.map((att, index) => {
+        return [
+          `--- Related HTML attachment ${index + 1} ---`,
+          `HTML row ID: ${att.html_row_id}`,
+          `Product SKU: ${att.product_sku}`,
+          `Source URL: ${att.url}`,
+          `Response code: ${att.response_code}`,
+          `Attachment ID: ${att.attachment_id}`,
+          att.error ? `Attachment read error: ${att.error}` : "",
+          "",
+          att.text || "[No readable text extracted]"
+        ].filter(line => line !== "").join("\n");
+      }).join("\n\n");
+    }
+
+    function renderHtmlAttachmentInfo(attachments) {
+      const el = document.getElementById("htmlAttachmentInfo");
+
+      if (!attachments || !attachments.length) {
+        el.textContent = "No related HTML attachments found.";
+        return;
+      }
+
+      const html = attachments.map((att, index) => {
+        const sourceUrl = att.url || "";
+        const attachmentUrl = att.attachment_url || "";
+        const docCount = Array.isArray(att.document_links) ? att.document_links.length : 0;
+        const docsHtml = docCount
+          ? `<div>  Documents: ${att.document_links.map(link => `<a href="${escapeHtml(link.url || "#")}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.title || link.text || "Document")}</a>`).join(", ")}</div>`
+          : `<div>  Documents: 0</div>`;
+
+        return [
+          `<div class="field-card">`,
+          `<div class="field-title">Attachment ${index + 1}</div>`,
+          `<div>HTML row ID: ${escapeHtml(att.html_row_id || "-")}</div>`,
+          `<div>Product SKU: ${escapeHtml(att.product_sku || "-")}</div>`,
+          `<div>Source page: ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(sourceUrl)}</a>` : "-"}</div>`,
+          `<div>HTML file: ${attachmentUrl ? `<a href="${escapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer">open attachment HTML</a>` : "not available"}</div>`,
+          `<div>Response code: ${escapeHtml(att.response_code || "-")}</div>`,
+          `<div>Text chars sent: ${att.text ? att.text.length : 0}</div>`,
+          docsHtml,
+          att.error ? `<div class="error">Error: ${escapeHtml(att.error)}</div>` : "",
+          `</div>`
+        ].filter(Boolean).join("");
+      }).join("\n");
+
+      el.innerHTML = html;
+    }
+
+
+    function getResolvedParentTitle(productRecord) {
+      return (
+        productRecord.RESOLVED_PARENT_TITLE ||
+        productRecord.PARENT_LABEL ||
+        extractTitle(productRecord.CLEAN_PRODUCT_INFO) ||
+        extractTitle(productRecord.PRODUCT_INFO) ||
+        ""
+      );
+    }
+
+    function extractManufacturerFromProductInfo(text) {
+      const match = String(text || "").match(/^Manufacturer:\s*(.+)$/m);
+      return match ? match[1].trim() : "";
+    }
+
+    function sourceTypeFromUrl(url) {
+      const host = getDomain(url);
+      if (!host) return "unknown";
+      if (host.includes("farlamedical") || host.includes("medisave") || host.includes("amazon") || host.includes("ebay")) return "supplier";
+      return "manufacturer_or_primary";
+    }
+
+    function getDomain(url) {
+      try { return new URL(String(url || "")).hostname.replace(/^www\./, ""); }
+      catch (err) { return ""; }
+    }
+
+    function splitLines(value) {
+      return String(value || "").split(/\r?\n|,|;/).map(s => s.trim()).filter(Boolean);
+    }
+
+
+    function allProductSkus(productRecord) {
+      const skus = [
+        productRecord.GROUP_SKU,
+        productRecord.VARPAR_SOLOPAR,
+        ...splitLines(productRecord.VARIANT_SKUS || ""),
+        ...splitLines(productRecord.SUBVARIANT_SKUS || "")
+      ];
+      return [...new Set(skus.map(s => String(s || "").trim()).filter(Boolean))];
+    }
+
+    async function updateSourceProductInfoPanels(record) {
+      const recordId = record && record.id;
+
+      try {
+        const plytixText = await buildPlytixProductInfoText(record);
+        if (currentRecord && currentRecord.id === recordId) setText("productInfo", plytixText || "No matching Plytix_Export rows found for this parent/variant group.");
+      } catch (err) {
+        console.warn("Could not build Plytix product info panel", err);
+        if (currentRecord && currentRecord.id === recordId) setText("productInfo", "Could not load Plytix_Export product info: " + (err.message || String(err)));
+      }
+
+      try {
+        const nanethText = await buildNanethResearchDataText(record);
+        if (currentRecord && currentRecord.id === recordId) setText("researchData", nanethText || "No matching Naneth_Data rows found for this parent/variant group.");
+      } catch (err) {
+        console.warn("Could not build Naneth_Data research panel", err);
+        if (currentRecord && currentRecord.id === recordId) setText("researchData", "Could not load Naneth_Data research rows: " + (err.message || String(err)));
+      }
+    }
+
+    async function fetchRowsForSkus(tableId, skus) {
+      const table = await grist.docApi.fetchTable(tableId);
+      const records = tableToRecords(table);
+      const skuSet = new Set((skus || []).map(s => String(s || "").trim()).filter(Boolean));
+      return records.filter(row => skuSet.has(String(row.SKU || row.sku || "").trim()));
+    }
+
+    async function buildPlytixProductInfoText(productRecord) {
+      const skus = allProductSkus(productRecord);
+      const rows = await fetchRowsForSkus("Plytix_Export", skus);
+      const parentSku = String(productRecord.VARPAR_SOLOPAR || productRecord.GROUP_SKU || "").trim();
+      const parentRows = rows.filter(row => String(row.SKU || "").trim() === parentSku || String(row.SKU || "").trim() === String(productRecord.GROUP_SKU || "").trim());
+      const variantRows = rows.filter(row => !parentRows.some(p => String(p.SKU || "").trim() === String(row.SKU || "").trim()));
+
+      const lines = [];
+      lines.push("Plytix parent/product data only. This panel intentionally excludes Naneth_Data and HTML evidence.");
+      lines.push("");
+
+      lines.push("Parent row:");
+      if (parentRows.length) {
+        const row = parentRows[0];
+        lines.push(formatPlytixRow(row, true));
+      } else {
+        lines.push(`- No exact Plytix parent row found for ${parentSku || "parent SKU"}.`);
+        if (productRecord.RESOLVED_PARENT_TITLE) lines.push(`- Resolved parent title: ${productRecord.RESOLVED_PARENT_TITLE}`);
+      }
+
+      lines.push("");
+      lines.push(`Variants/subvariants from Plytix: ${variantRows.length}`);
+      for (const row of variantRows.slice(0, 120)) {
+        lines.push(formatPlytixRow(row, false));
+      }
+      if (variantRows.length > 120) lines.push(`... ${variantRows.length - 120} more Plytix variant rows not shown`);
+
+      return lines.join("\n");
+    }
+
+    function formatPlytixRow(row, isParent) {
+      const sku = String(row.SKU || "").trim();
+      const label = String(row.Label || row.Title || row.Name || "").trim();
+      const manufacturer = String(row.Manufacturer || row.Brand || "").trim();
+      const options = extractShopifyOptionsFromRow(row)
+        .map(opt => `${opt.name}: ${opt.value}`)
+        .filter(Boolean)
+        .join("; ");
+      return [
+        `- ${isParent ? "Parent" : "Variant"}: ${skuBase(sku) || sku}`,
+        label ? `  Label: ${label}` : "",
+        manufacturer ? `  Manufacturer/brand: ${manufacturer}` : "",
+        options ? `  Shopify options: ${options}` : ""
+      ].filter(Boolean).join("\n");
+    }
+
+    async function buildNanethResearchDataText(productRecord) {
+      const skus = allProductSkus(productRecord);
+      const rows = await fetchRowsForSkus("Naneth_Data", skus);
+      const lines = [];
+      lines.push("Naneth_Data research rows only. This panel intentionally excludes Plytix_Export and HTML attachments.");
+      lines.push("");
+      lines.push(`Rows found: ${rows.length}`);
+
+      for (const row of rows.slice(0, 80)) {
+        lines.push(formatNanethRow(row));
+      }
+      if (rows.length > 80) lines.push(`... ${rows.length - 80} more Naneth_Data rows not shown`);
+      return lines.join("\n");
+    }
+
+    function formatNanethRow(row) {
+      const parts = [
+        "",
+        `--- ${row.SKU || "No SKU"} ---`,
+        row.Variant_of ? `Variant of: ${row.Variant_of}` : "",
+        row.Title ? `Title: ${row.Title}` : "",
+        row.Label ? `Label: ${row.Label}` : "",
+        row.Manufacturer ? `Manufacturer: ${row.Manufacturer}` : "",
+        row.Long_Description ? `Long description: ${row.Long_Description}` : (row["Long Description"] ? `Long description: ${row["Long Description"]}` : ""),
+        row.Bullet_Features ? `Bullet features: ${row.Bullet_Features}` : (row["Bullet Features"] ? `Bullet features: ${row["Bullet Features"]}` : ""),
+        row.Specs ? `Specs: ${row.Specs}` : "",
+        row.Source_URL_1 ? `Source URL 1: ${row.Source_URL_1}` : (row["Source URL 1"] ? `Source URL 1: ${row["Source URL 1"]}` : ""),
+        row.Source_URL_2 ? `Source URL 2: ${row.Source_URL_2}` : (row["Source URL 2"] ? `Source URL 2: ${row["Source URL 2"]}` : "")
+      ];
+      return parts.filter(Boolean).join("\n");
+    }
+
+    function skuBase(sku) {
+      let value = String(sku || "").trim();
+      value = value.replace(/^[A-Z0-9]{1,3}-/, "");
+      value = value.replace(/-(?:unit|case|pack|box|each|single|pk|\d+pk|\d+pack)$/i, "");
+      return value;
+    }
+
+    async function loadVariantEvidence(productRecord) {
+      const skuList = splitLines(productRecord.VARIANT_SKUS || productRecord.SUBVARIANT_SKUS)
+        .filter(sku => sku && sku !== productRecord.GROUP_SKU && sku !== productRecord.VARPAR_SOLOPAR);
+      const skuSet = new Set(skuList);
+      if (!skuSet.size) return [];
+
+      const rows = [];
+      for (const tableId of ["Plytix_Export"]) {
+        try {
+          const table = await grist.docApi.fetchTable(tableId);
+          const records = tableToRecords(table);
+          for (const row of records) {
+            const sku = String(row.SKU || row.sku || "").trim();
+            if (skuSet.has(sku)) rows.push({ ...row, _source_table: tableId });
+          }
+        } catch (err) {
+          console.warn(`Could not load ${tableId} for Plytix variant evidence`, err);
+        }
+      }
+
+      const bySku = new Map();
+      for (const row of rows) {
+        const sku = String(row.SKU || row.sku || "").trim();
+        if (sku && !bySku.has(sku)) bySku.set(sku, row);
+      }
+
+      return [...bySku.values()].map(row => ({
+        sku: String(row.SKU || row.sku || "").trim(),
+        sku_base: skuBase(row.SKU || row.sku || ""),
+        label: String(row.Label || row.label || row.Title || row.title || "").trim(),
+        shopify_options: extractShopifyOptionsFromRow(row)
+      }));
+    }
+
+    function extractShopifyOptionsFromRow(row) {
+      const opts = [];
+      const keys = Object.keys(row || {});
+      for (let i = 1; i <= 3; i++) {
+        const name = firstPresent(row, [
+          `Option${i}_Name`, `Option_${i}_Name`, `Option${i}Name`, `Option ${i} Name`,
+          `Shopify_Option${i}_Name`, `Shopify_Option_${i}_Name`, `OPTION${i}_NAME`
+        ]);
+        const value = firstPresent(row, [
+          `Option${i}_Value`, `Option_${i}_Value`, `Option${i}Value`, `Option ${i} Value`,
+          `Shopify_Option${i}_Value`, `Shopify_Option_${i}_Value`, `OPTION${i}_VALUE`,
+          `Option${i}`, `Option_${i}`
+        ]);
+        if (String(name || value || "").trim()) {
+          opts.push({ name: String(name || `Option ${i}`).trim(), value: String(value || "").trim() });
+        }
+      }
+
+      // Fallback: scan any option-ish column names we didn't know about.
+      for (const key of keys) {
+        const lower = key.toLowerCase();
+        if (!lower.includes("option")) continue;
+        const val = String(row[key] || "").trim();
+        if (!val) continue;
+        if (opts.some(o => o.value === val || o.name === val)) continue;
+        opts.push({ name: key, value: val });
+      }
+
+      return opts;
+    }
+
+    function firstPresent(row, keys) {
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(row || {}, key) && String(row[key] || "").trim()) return row[key];
+      }
+      return "";
+    }
+
+    function inferVariantDifferentiators(variantEvidence) {
+      const buckets = new Map();
+      const add = (name, value) => {
+        const clean = String(value || "").trim();
+        if (!clean) return;
+        if (!buckets.has(name)) buckets.set(name, new Set());
+        buckets.get(name).add(clean);
+      };
+
+      for (const row of (variantEvidence || [])) {
+        for (const opt of (row.shopify_options || [])) add(opt.name || "Option", opt.value);
+        const label = String(row.label || "");
+        const pack = label.match(/pack\s+of\s+(\d+)|box\s+of\s+(\d+)|\b(\d+)\s*(?:pcs|pieces|pk)\b/i);
+        if (pack) add("pack_qty", pack[1] || pack[2] || pack[3]);
+        const gd = label.match(/\b(\d{1,2})\s*g\b.*?\b(\d+(?:\.\d+)?)\s*mm\b/i);
+        if (gd) add("gauge_depth", `${gd[1]}G / ${gd[2]}mm`);
+        for (const word of ["Extra", "Comfort", "Gentle", "Neonatal", "Safety", "Purple", "Orange", "White", "Blue", "Yellow", "Black", "Small", "Medium", "Large"]) {
+          if (new RegExp(`\\b${word}\\b`, "i").test(label)) add("label_terms", word);
+        }
+      }
+
+      return [...buckets.entries()].map(([name, set]) => ({ name, values: [...set].slice(0, 25) })).filter(x => x.values.length);
+    }
+
+    function buildEvidencePack(productRecord, relatedHtmlAttachments, variantEvidence, sourceResearch) {
+      const parentTitle = getResolvedParentTitle(productRecord);
+      const cleanInfo = productRecord.CLEAN_PRODUCT_INFO || productRecord.PRODUCT_INFO || "";
+      const manufacturer = extractManufacturerFromProductInfo(cleanInfo);
+      const documentLinks = collectDocumentLinksFromAttachments(relatedHtmlAttachments || []);
+      const sourceHtml = (relatedHtmlAttachments || [])
+        .filter(att => att.text && String(att.text).trim())
+        .map((att, index) => ({
+          source_id: `html_${index + 1}`,
+          source_type: sourceTypeFromUrl(att.url),
+          source_domain: getDomain(att.url),
+          source_page: att.url || "",
+          page_title: extractEvidenceTitle(att.text) || guessDocumentTitleFromUrl(att.url || `html_${index + 1}`),
+          product_sku_base: skuBase(att.product_sku || ""),
+          html_text: trimForPrompt(att.text || "", 12000),
+          document_links_found: (att.document_links || []).map(link => ({
+            title: link.title || link.text || "Document",
+            type: link.type || "document",
+            url: link.url || "",
+            source_page: link.source_page || att.url || ""
+          }))
+        }));
+
+      return {
+        product_identity: {
+          product_name_anchor: parentTitle,
+          manufacturer: manufacturer || ""
+        },
+        variant_structure: {
+          variant_count: (variantEvidence || []).length || splitLines(productRecord.VARIANT_SKUS || productRecord.SUBVARIANT_SKUS).length,
+          variant_sku_bases: (variantEvidence || []).map(v => v.sku_base).filter(Boolean).slice(0, 80),
+          variant_differentiators: inferVariantDifferentiators(variantEvidence || [])
+        },
+        source_html: sourceHtml,
+        documentation_links_found: documentLinks.map(link => ({
+          title: link.title || link.text || "Document",
+          type: link.type || "document",
+          url: link.url || "",
+          source_page: link.source_page || ""
+        })),
+        source_extraction: sourceResearch || null,
+        fallback_clean_evidence: (!sourceHtml.length && !sourceResearch) ? trimForPrompt(cleanInfo, 8000) : ""
+      };
+    }
+
+    function extractEvidenceTitle(text) {
+      const value = String(text || "");
+      const m = value.match(/^(?:HTML title|H1):\s*(.+)$/m);
+      return m ? m[1].trim() : "";
+    }
+
+    function generationInstructionsText() {
+      return [
+        "Task: split extracted product evidence into parent-level ecommerce fields for a UK medical supplies product.",
+        "Use evidence_pack.source_extraction as the only source of truth. Do not browse, search, invent, or use general knowledge.",
+        "If evidence_pack.source_extraction has no extracted_facts/evidence_facts and there is no readable source_html, fail closed: return product_name only, empty long_description, bullet_features, specs, contents, sources and documentation, plus a warning. Do not write copy from memory.",
+        "product_name must be based on product_identity.product_name_anchor.",
+        "Variant SKU bases, Shopify options and inferred differentiators explain what varies; do not copy them as parent-level specs, contents, description or bullets.",
+        "Exclude pack sizes, colours, gauge/depth values, dimensions, UOMs, kit options and test areas when they vary by variant. If a fact clearly applies to all variants and is extracted from source evidence, it may be used.",
+        "Only use extracted facts where usable_for includes product_copy, specs, contents, or documentation as appropriate.",
+        "Do not use facts marked documentation_only, warning_only, ignore_variant_only, or ignore_regulatory_marketing_risk in long_description or bullet_features.",
+        "SDS/regulatory hazard classifications must not be turned into marketing/product benefits. Keep matching SDS links in documentation only.",
+        "specs must be useful typed JSON scalar attributes only; do not include brand, manufacturer, product type, product family, category or supplier in specs.",
+        "contents is only for kit/component lists. documentation is only for matching PDF/document links found by URL extraction.",
+        "sources should include only URLs actually used to support the final output. Exclude low-relevance/variant-only sources unless a final claim specifically depends on them.",
+        "bullet_features must not repeat long_description. Prefer fewer good bullets over weak duplicates.",
+        "Return only JSON matching the product_enrichment schema."
+      ].join("\n");
+    }
+
+    function buildGenerationPrompt({
+      productRecord,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      userRevisionComment,
+      previousGeneration,
+      previousQa
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      let revisionBlock = "";
+
+      if (userRevisionComment) {
+        revisionBlock = "\n\nReviewer requested changes:\n" + userRevisionComment +
+          "\n\nPrevious output:\n" + JSON.stringify(previousGeneration || {}, null, 2) +
+          "\n\nPrevious QA:\n" + JSON.stringify(previousQa || {}, null, 2);
+      }
+
+      return generationInstructionsText() + "\n\nevidence_pack:\n" + JSON.stringify(evidencePack, null, 2) + revisionBlock;
+    }
+
+    function buildQaEvidencePrompt({
+      productRecord,
+      generationResult,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      userRevisionComment,
+      qaStage,
+      previousQaAudit
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      return [
+        `QA stage: ${qaStage || "audit"}`,
+        "Review the product JSON against evidence_pack.",
+        "Penalise or repair if: product_name ignores the product_name_anchor; variant differentiators leak into parent copy/specs; specs are generic metadata; bullets duplicate the description; unsupported medical/regulatory claims appear; relevant documentation links are missed; sources do not identify the source_id/source_page used.",
+        qaRulesText(),
+        userRevisionComment ? `Reviewer comment:\n${userRevisionComment}` : "Reviewer comment: none",
+        previousQaAudit ? `Previous QA audit:\n${JSON.stringify(previousQaAudit, null, 2)}` : "Previous QA audit: none",
+        "evidence_pack:",
+        JSON.stringify(evidencePack, null, 2),
+        "Generated output to review:",
+        JSON.stringify(generationResult || {}, null, 2)
+      ].join("\n\n");
+    }
+
+    function buildRepairPrompt({
+      productRecord,
+      initialGeneration,
+      qaAudit,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      return [
+        "Create the final repaired product output. Return only JSON matching the product_enrichment schema.",
+        "Use evidence_pack as the only evidence. Apply the QA audit corrections.",
+        "If evidence_pack has no usable extracted facts, return product_name only and empty copy/specs/sources/documentation with a warning. Do not write copy from memory.",
+        "Remove bad specs, duplicate bullets, unsupported claims, irrelevant documentation, variant-level content, and SDS/regulatory hazard statements used as marketing claims.",
+        "Keep matching SDS/PDF/document links in documentation only. Put kit/component lists in contents. Specs must be typed scalar JSON values only.",
+        userRevisionComment ? `Reviewer comment:\n${userRevisionComment}` : "Reviewer comment: none",
+        "evidence_pack:",
+        JSON.stringify(evidencePack, null, 2),
+        "Initial generated output:",
+        JSON.stringify(initialGeneration || {}, null, 2),
+        "QA audit:",
+        JSON.stringify(qaAudit || {}, null, 2)
+      ].join("\n\n");
+    }
+
+
+    async function runGeminiUrlExtractionRequest({
+      apiKey,
+      model,
+      productRecord,
+      relatedHtmlAttachments,
+      variantEvidence,
+      env
+    }) {
+      const sourceUrls = getSourceUrlsForResearch(productRecord, 20);
+      const productName = getResolvedParentTitle(productRecord);
+      const manufacturer = extractManufacturerFromProductInfo(productRecord.CLEAN_PRODUCT_INFO || productRecord.PRODUCT_INFO || "");
+      const variantSummary = {
+        variant_count: (variantEvidence || []).length || splitLines(productRecord.VARIANT_SKUS || productRecord.SUBVARIANT_SKUS).length,
+        variant_sku_bases: (variantEvidence || []).map(v => v.sku_base).filter(Boolean).slice(0, 100),
+        variant_differentiators: inferVariantDifferentiators(variantEvidence || []),
+        shopify_options: extractShopifyOptionsFromVariantEvidence(variantEvidence || [])
+      };
+
+      if (!sourceUrls.length) {
+        return {
+          status: "skipped_no_urls",
+          product_name_anchor: productName,
+          manufacturer,
+          inspected_urls: [],
+          extracted_facts: [],
+          contents: [],
+          documentation_links: [],
+          source_checks: [],
+          warnings: ["No source URLs were available for Gemini URL Context extraction."]
+        };
+      }
+
+      const payload = {
+        model,
+        temperature: 0,
+        top_p: 0.05,
+        provider: {
+          require_parameters: true,
+          allow_fallbacks: false
+        },
+        // Gemini URL Context pass-through for providers that support it through OpenRouter.
+        // The URLs are also written plainly in the user prompt, which is how Gemini URL Context selects them.
+        tools: [
+          { url_context: {} }
+        ],
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a deterministic URL Context extractor for ecommerce medical supplies. " +
+              "Use only the exact URLs supplied in the user message. Do not perform general web search. " +
+              "Do not correct, replace, or expand the URL list. Do not write ecommerce copy. " +
+              "Extract source-backed facts, contents/component lists, and matching PDF/document links only. " +
+              "If a URL cannot be accessed, mark it failed or blocked. Return JSON only."
+          },
+          {
+            role: "user",
+            content: buildGeminiUrlExtractionPrompt({ productName, manufacturer, variantSummary, sourceUrls })
+          }
+        ],
+        response_format: sourceExtractionResponseFormat()
+      };
+
+      try {
+        const responseJson = await callOpenRouter({ apiKey, payload, env, label: "Gemini URL Context extraction" });
+        return normaliseSourceExtraction(parseOpenRouterContent(responseJson), sourceUrls);
+      } catch (err) {
+        return {
+          status: "error",
+          product_name_anchor: productName,
+          manufacturer,
+          inspected_urls: sourceUrls.map((url, index) => ({ source_id: `url_${index + 1}`, url, status: "failed", relevance: "unknown", notes: "Gemini URL extraction failed before this URL could be checked." })),
+          extracted_facts: [],
+          contents: [],
+          documentation_links: [],
+          source_checks: sourceUrls.map((url, index) => ({ url, source_id: `url_${index + 1}`, relevance: "unknown", status: "failed", notes: "Gemini URL extraction failed before this URL could be checked." })),
+          warnings: ["Gemini URL Context extraction failed: " + (err.message || String(err))]
+        };
+      }
+    }
+
+
+    async function runPerplexityUrlExtractionRequest({
+      apiKey,
+      model,
+      productRecord,
+      variantEvidence,
+      env
+    }) {
+      const sourceUrls = getSourceUrlsForResearch(productRecord, 20);
+      const allowedUrlFilter = buildPerplexityAllowedUrlFilter(sourceUrls);
+      const productName = getResolvedParentTitle(productRecord);
+      const manufacturer = extractManufacturerFromProductInfo(productRecord.CLEAN_PRODUCT_INFO || productRecord.PRODUCT_INFO || "");
+      const variantSummary = {
+        variant_count: (variantEvidence || []).length || splitLines(productRecord.VARIANT_SKUS || productRecord.SUBVARIANT_SKUS).length,
+        variant_sku_bases: (variantEvidence || []).map(v => v.sku_base).filter(Boolean).slice(0, 100),
+        variant_differentiators: inferVariantDifferentiators(variantEvidence || []),
+        shopify_options: extractShopifyOptionsFromVariantEvidence(variantEvidence || [])
+      };
+
+      if (!sourceUrls.length) {
+        return {
+          status: "skipped_no_urls",
+          extractor: "perplexity_url_limited",
+          product_name_anchor: productName,
+          manufacturer,
+          inspected_urls: [],
+          extracted_facts: [],
+          evidence_facts: [],
+          contents: [],
+          documentation_links: [],
+          source_checks: [],
+          warnings: ["No source URLs were available for Perplexity URL-limited extraction."]
+        };
+      }
+
+      const payload = {
+        model,
+        temperature: 0,
+        top_p: 0.05,
+        // Perplexity/OpenRouter may reject strict provider.require_parameters for search-domain requests.
+        // Keep the native Perplexity domain allowlist where supported, but also hard-filter
+        // returned evidence in normaliseSourceExtraction() so unsupported/ignored filters cannot leak.
+        search_domain_filter: allowedUrlFilter,
+        enable_search_classifier: false,
+        disable_search: false,
+        web_search_options: {
+          search_context_size: "low"
+        },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a deterministic domain-limited RAG extractor for ecommerce medical supplies. " +
+              "Use search_domain_filter as a strict domain allowlist. First try the exact URLs supplied by the user. " +
+              "If an exact URL is inaccessible, you may use another page on the same allowlisted domain only if it clearly matches the same product family. " +
+              "Do not use pages from other domains and do not infer missing facts. " +
+              "Do not write product copy. Extract factual source evidence, contents/component lists, and matching PDF/document links only. " +
+              "If a URL fails or is blocked, mark it failed/blocked. Return JSON only."
+          },
+          {
+            role: "user",
+            content: buildPerplexityUrlExtractionPrompt({ productName, manufacturer, variantSummary, sourceUrls, allowedUrlFilter })
+          }
+        ],
+        response_format: sourceExtractionResponseFormat()
+      };
+
+      try {
+        const responseJson = await callOpenRouter({ apiKey, payload, env, label: "Perplexity URL-limited fallback extraction" });
+        const parsed = parseOpenRouterContent(responseJson);
+        const normalised = normaliseSourceExtractionByDomain(parsed, sourceUrls);
+        normalised.extractor = "perplexity_domain_rag_fallback";
+        normalised.warnings = [
+          "Gemini URL extraction had no usable evidence; used Perplexity domain-limited fallback.",
+          ...((normalised.warnings || []))
+        ];
+        return normalised;
+      } catch (err) {
+        return {
+          status: "error",
+          extractor: "perplexity_url_limited",
+          product_name_anchor: productName,
+          manufacturer,
+          inspected_urls: sourceUrls.map((url, index) => ({ source_id: `url_${index + 1}`, url, status: "failed", relevance: "unknown", notes: "Perplexity fallback failed before this URL could be checked." })),
+          extracted_facts: [],
+          evidence_facts: [],
+          contents: [],
+          documentation_links: [],
+          source_checks: sourceUrls.map((url, index) => ({ url, source_id: `url_${index + 1}`, relevance: "unknown", status: "failed", notes: "Perplexity fallback failed before this URL could be checked." })),
+          warnings: ["Perplexity URL-limited fallback extraction failed: " + (err.message || String(err))]
+        };
+      }
+    }
+
+    function buildPerplexityUrlExtractionPrompt({ productName, manufacturer, variantSummary, sourceUrls, allowedUrlFilter }) {
+      return [
+        "Extract source data for this product from the exact supplied URLs only.",
+        "Act as domain-limited RAG only. Do not write ecommerce copy. Do not summarise creatively. Do not search outside the allowed domains.",
+        "First inspect the exact URLs. If an exact URL fails, you may use another page only on the same allowed domain and only when it clearly matches the product family. Mark that as a same_domain_fallback.",
+        "You may inspect PDF/document links only when those links are present on one of the supplied pages and appear to match the product family.",
+        "Return source-backed extraction JSON only.",
+        "",
+        "Product identity to match:",
+        JSON.stringify({ product_name_anchor: productName, manufacturer: manufacturer || "" }, null, 2),
+        "",
+        "Variant structure. These values explain what varies and should usually be excluded from parent-level copy/specs:",
+        JSON.stringify(variantSummary, null, 2),
+        "",
+        "Preferred exact URLs. Try these first. If inaccessible, same-domain product-family pages are allowed as fallback; other domains are forbidden:",
+        sourceUrls.map((url, index) => `${index + 1}. ${url}`).join("\n"),
+        "",
+        "Domain allowlist being sent with the API request. You may use only these domains:",
+        JSON.stringify(allowedUrlFilter || [], null, 2),
+        "",
+        "Return JSON only with this shape:",
+        JSON.stringify({
+          status: "ok | partial | failed",
+          product_name_anchor: productName,
+          manufacturer: manufacturer || "",
+          inspected_urls: [
+            { source_id: "url_1", url: "exact supplied URL", status: "inspected|failed|blocked", relevance: "high|medium|low|unknown", page_title: "title found on page", notes: "brief factual notes only" }
+          ],
+          extracted_facts: [
+            {
+              fact: "short extracted fact exactly supported by source",
+              supported_by_url: "exact URL or discovered matching document URL",
+              source_id: "url_1 or doc_1",
+              confidence: "high|medium|low",
+              applies_to: "parent_family|variant_only|uncertain",
+              usable_for: ["product_copy", "specs", "contents", "documentation"],
+              do_not_use_in_marketing_copy: false,
+              notes: "why usable / limitations"
+            }
+          ],
+          contents: [
+            { item: "component name", quantity: "number or text", supported_by_url: "URL", source_id: "url_1", notes: "only for kit/component lists" }
+          ],
+          documentation_links: [
+            { title: "document title", type: "sds|ifu|datasheet|brochure|manual|declaration|other", url: "PDF/document URL", source_page: "URL where found", source_id: "doc_1", relevance: "high|medium|low|unknown", notes: "why it matches or is uncertain" }
+          ],
+          source_checks: [
+            { url: "source URL", source_id: "url_1", relevance: "high|medium|low|unknown", status: "inspected|failed|blocked", notes: "what the page was useful for" }
+          ],
+          warnings: ["research limitation or uncertainty"]
+        }, null, 2),
+        "",
+        "Fact classification rules:",
+        "- Prefer manufacturer pages over supplier pages.",
+        "- Mark variant-only facts as applies_to=variant_only and usable_for=[] or ['warning_only'].",
+        "- Do not treat pack size, colour, size, gauge/depth, dimensions, UOM, SKU or test area as parent facts if they vary by variant.",
+        "- Classify SDS/regulatory hazard facts such as 'no known health hazards', 'not carcinogenic', 'no OSHA hazard', 'not hazardous' as usable_for=['documentation'] and do_not_use_in_marketing_copy=true.",
+        "- Include PDF/document links only when they appear to match this product family. Do not put unrelated generic PDFs in documentation_links.",
+        "- Output only extraction data. Gemini will write final copy later.",
+        "- If you cannot verify a fact on an allowlisted URL or a matching document linked from it, omit the fact and add a warning."
+      ].join("\n");
+    }
+
+    function buildPerplexityAllowedUrlFilter(sourceUrls) {
+      // Perplexity search_domain_filter is domain-based, not exact-URL based.
+      // Exact URL enforcement is handled in the prompt plus post-filtering of returned evidence.
+      const domains = [];
+      for (const raw of sourceUrls || []) {
+        try {
+          const u = new URL(String(raw || "").trim());
+          const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+          if (host) domains.push(host);
+        } catch (err) {}
+      }
+      return [...new Set(domains)].slice(0, 10);
+    }
+
+    function mergeSourceExtractionFallback(geminiExtraction, perplexityExtraction) {
+      if (hasUsableSourceEvidence(perplexityExtraction, [])) {
+        return {
+          ...(perplexityExtraction || {}),
+          status: perplexityExtraction.status || "ok",
+          active_extractor: "perplexity_url_limited_fallback",
+          gemini_url_extraction: geminiExtraction || null,
+          perplexity_url_extraction: perplexityExtraction || null,
+          warnings: [
+            "Gemini URL extraction returned no usable evidence, so Perplexity URL-limited fallback was used.",
+            ...(((geminiExtraction && geminiExtraction.warnings) || []).map(w => `Gemini: ${w}`)),
+            ...(((perplexityExtraction && perplexityExtraction.warnings) || []).map(w => `Perplexity: ${w}`))
+          ]
+        };
+      }
+
+      return {
+        status: "failed_no_usable_evidence",
+        active_extractor: "none",
+        product_name_anchor: (geminiExtraction && geminiExtraction.product_name_anchor) || (perplexityExtraction && perplexityExtraction.product_name_anchor) || "",
+        manufacturer: (geminiExtraction && geminiExtraction.manufacturer) || (perplexityExtraction && perplexityExtraction.manufacturer) || "",
+        inspected_urls: [],
+        extracted_facts: [],
+        evidence_facts: [],
+        contents: [],
+        documentation_links: [],
+        source_checks: [],
+        gemini_url_extraction: geminiExtraction || null,
+        perplexity_url_extraction: perplexityExtraction || null,
+        warnings: [
+          "No usable evidence was extracted by Gemini URL Context or Perplexity URL-limited fallback.",
+          ...(((geminiExtraction && geminiExtraction.warnings) || []).map(w => `Gemini: ${w}`)),
+          ...(((perplexityExtraction && perplexityExtraction.warnings) || []).map(w => `Perplexity: ${w}`))
+        ]
+      };
+    }
+
+    function hasUsableSourceEvidence(sourceResearch, relatedHtmlAttachments) {
+      const sr = sourceResearch || {};
+      const facts = Array.isArray(sr.extracted_facts) ? sr.extracted_facts : (Array.isArray(sr.evidence_facts) ? sr.evidence_facts : []);
+      const docs = Array.isArray(sr.documentation_links) ? sr.documentation_links : [];
+      const contents = Array.isArray(sr.contents) ? sr.contents : [];
+      const inspectedOk = (Array.isArray(sr.inspected_urls) ? sr.inspected_urls : []).some(row => {
+        const status = String(row.status || "").toLowerCase();
+        const relevance = String(row.relevance || "").toLowerCase();
+        return (status === "inspected" || status === "ok" || status === "success") && relevance !== "unknown" && relevance !== "low";
+      });
+      const readableHtml = (relatedHtmlAttachments || []).some(att => att && String(att.text || "").trim().length > 250);
+      return facts.length > 0 || docs.length > 0 || contents.length > 0 || inspectedOk || readableHtml;
+    }
+
+    function buildNoEvidenceProductOutput(productRecord, sourceResearch) {
+      const title = getResolvedParentTitle(productRecord) || "";
+      const warnings = [
+        "No usable source evidence was extracted from the supplied URLs. AI copy generation was intentionally blocked to avoid hallucinated product claims."
+      ];
+      for (const warning of ((sourceResearch && sourceResearch.warnings) || [])) {
+        if (warning && !warnings.includes(warning)) warnings.push(String(warning));
+      }
+      return {
+        product_name: title,
+        long_description: "",
+        bullet_features: [],
+        contents: [],
+        specs: {},
+        sources: [],
+        documentation: [],
+        warnings
+      };
+    }
+
+    function buildNoEvidenceQa(productOutput, sourceResearch) {
+      const sourceChecks = Array.isArray(sourceResearch && sourceResearch.source_checks) ? sourceResearch.source_checks : [];
+      return {
+        trust_score: 0,
+        publish_recommendation: "reject",
+        summary: "No usable source evidence was extracted from the supplied URLs, so the widget failed closed and did not generate ecommerce copy.",
+        issues: [
+          {
+            severity: "high",
+            field: "all",
+            issue: "No usable source evidence was available for product enrichment.",
+            evidence: JSON.stringify((sourceResearch && sourceResearch.warnings) || [], null, 2),
+            suggested_fix: "Provide at least one accessible manufacturer or supplier URL, or populate readable source text in Naneth_HTML before running AI enrichment."
+          }
+        ],
+        unsupported_claims: [],
+        source_checks: sourceChecks,
+        field_scores: {
+          product_name: productOutput && productOutput.product_name ? 50 : 0,
+          long_description: 0,
+          bullet_features: 0,
+          contents: 0,
+          specs: 0,
+          sources: 0,
+          documentation: 0,
+          warnings: 100
+        },
+        safe_to_publish: false,
+        recommended_changes: productOutput
+      };
+    }
+
+    function sanitizeFinalProductOutput(output, sourceResearch) {
+      const out = Object.assign({
+        product_name: "",
+        long_description: "",
+        bullet_features: [],
+        contents: [],
+        specs: {},
+        sources: [],
+        documentation: [],
+        warnings: []
+      }, output || {});
+
+      if (!Array.isArray(out.bullet_features)) out.bullet_features = out.bullet_features ? [String(out.bullet_features)] : [];
+      if (!Array.isArray(out.contents)) out.contents = [];
+      if (!Array.isArray(out.sources)) out.sources = [];
+      if (!Array.isArray(out.documentation)) out.documentation = [];
+      if (!Array.isArray(out.warnings)) out.warnings = out.warnings ? [String(out.warnings)] : [];
+
+      const badSpecKeys = new Set(["brand", "manufacturer", "product_type", "product_family", "product family", "category", "supplier"]);
+      const specs = (out.specs && typeof out.specs === "object" && !Array.isArray(out.specs)) ? out.specs : {};
+      const cleanedSpecs = {};
+      for (const [key, value] of Object.entries(specs)) {
+        const norm = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+        if (badSpecKeys.has(norm)) continue;
+        if (value === null || value === undefined || typeof value === "object") continue;
+        cleanedSpecs[key] = value;
+      }
+      out.specs = cleanedSpecs;
+
+      if (!hasUsableSourceEvidence(sourceResearch, latestRelatedHtmlAttachments || [])) {
+        out.long_description = "";
+        out.bullet_features = [];
+        out.contents = [];
+        out.specs = {};
+        out.sources = [];
+        out.documentation = [];
+        if (!out.warnings.some(w => String(w).includes("No usable source evidence"))) {
+          out.warnings.unshift("No usable source evidence was extracted from the supplied URLs. AI copy generation was intentionally blocked to avoid hallucinated product claims.");
+        }
+      }
+
+      return out;
+    }
+
+    function buildGeminiUrlExtractionPrompt({ productName, manufacturer, variantSummary, sourceUrls }) {
+      return [
+        "Extract product evidence from the exact URLs below using Gemini URL Context.",
+        "Do not use Google Search. Do not browse beyond the supplied URLs. Do not correct or replace URLs.",
+        "You may include PDF/document links only when they are found on these pages and clearly match the same product/family.",
+        "Do not write marketing copy. Do not infer missing facts. Return extraction JSON only.",
+        "",
+        "Product identity to match:",
+        JSON.stringify({ product_name_anchor: productName, manufacturer: manufacturer || "" }, null, 2),
+        "",
+        "Variant structure. These are variant differentiators to help decide what to exclude from parent-level output:",
+        JSON.stringify(variantSummary, null, 2),
+        "",
+        "Exact URLs to inspect. Stay limited to these URLs:",
+        sourceUrls.map((url, index) => `url_${index + 1}: ${url}`).join("\n"),
+        "",
+        "Return JSON only with this shape:",
+        JSON.stringify({
+          status: "ok | partial | failed",
+          product_name_anchor: productName,
+          manufacturer: manufacturer || "",
+          inspected_urls: [
+            { source_id: "url_1", url: "exact supplied URL", status: "inspected|failed|blocked", relevance: "high|medium|low|unknown", page_title: "title found on page", notes: "brief factual notes only" }
+          ],
+          extracted_facts: [
+            {
+              fact: "short extracted fact exactly supported by source",
+              supported_by_url: "exact URL or matching document URL found on that exact page",
+              source_id: "url_1 or doc_1",
+              confidence: "high|medium|low",
+              applies_to: "parent_family|variant_only|uncertain",
+              usable_for: ["product_copy", "specs", "contents", "documentation"],
+              do_not_use_in_marketing_copy: false,
+              notes: "why usable / limitations"
+            }
+          ],
+          contents: [
+            { item: "component name", quantity: "number or text", supported_by_url: "URL", source_id: "url_1", notes: "only for kit/component lists" }
+          ],
+          documentation_links: [
+            { title: "document title", type: "sds|ifu|datasheet|brochure|manual|declaration|other", url: "PDF/document URL", source_page: "URL where found", source_id: "doc_1", relevance: "high|medium|low|unknown", notes: "why it matches or is uncertain" }
+          ],
+          source_checks: [
+            { url: "source URL", source_id: "url_1", relevance: "high|medium|low|unknown", status: "inspected|failed|blocked", notes: "what the page was useful for" }
+          ],
+          warnings: ["research limitation or uncertainty"]
+        }, null, 2),
+        "",
+        "Classification rules:",
+        "- Prefer manufacturer pages over supplier pages.",
+        "- Mark variant-only facts as applies_to=variant_only and usable_for=[] or ['warning_only'].",
+        "- Do not treat pack size, colour, size, gauge/depth, dimensions, UOM, SKU or test area as parent facts if they vary by variant.",
+        "- Classify SDS/regulatory hazard facts such as 'no known health hazards', 'not carcinogenic', 'no OSHA hazard', 'not hazardous' as usable_for=['documentation'] and do_not_use_in_marketing_copy=true.",
+        "- Include PDF/document links only when they appear to match this product family.",
+        "- If you cannot verify a fact from the supplied URLs or a matching document linked from them, omit the fact and add a warning."
+      ].join("\n");
+    }
+
+
+    function normaliseSourceExtractionByDomain(value, sourceUrls) {
+      const obj = value && typeof value === "object" ? value : {};
+      const allowedDomains = new Set((sourceUrls || []).map(url => {
+        try { return new URL(String(url || "").trim()).hostname.replace(/^www\./i, "").toLowerCase(); }
+        catch (err) { return ""; }
+      }).filter(Boolean));
+      const warnings = Array.isArray(obj.warnings) ? [...obj.warnings] : [];
+      const isAllowedDomainUrl = raw => {
+        try {
+          const u = new URL(String(raw || "").trim());
+          return allowedDomains.has(u.hostname.replace(/^www\./i, "").toLowerCase());
+        } catch (err) { return false; }
+      };
+      const rawDocs = Array.isArray(obj.documentation_links) ? obj.documentation_links : [];
+      const documentationLinks = rawDocs.filter(doc => {
+        if (/^https?:\/\//i.test(String(doc.url || "")) && (isAllowedDomainUrl(doc.source_page || doc.source || "") || isAllowedDomainUrl(doc.url || ""))) return true;
+        warnings.push(`Filtered document outside allowed domains: ${doc.url || "unknown URL"}`);
+        return false;
+      });
+      const rawFacts = Array.isArray(obj.extracted_facts)
+        ? obj.extracted_facts
+        : (Array.isArray(obj.evidence_facts) ? obj.evidence_facts : []);
+      const extractedFacts = rawFacts.filter(fact => {
+        if (isAllowedDomainUrl(fact.supported_by_url || fact.url || "")) return true;
+        warnings.push(`Filtered fact outside allowed domains: ${fact.supported_by_url || fact.url || "missing URL"}`);
+        return false;
+      });
+      const contents = (Array.isArray(obj.contents) ? obj.contents : []).filter(item => {
+        if (isAllowedDomainUrl(item.supported_by_url || item.url || "")) return true;
+        warnings.push(`Filtered contents item outside allowed domains: ${item.item || item.name || "unknown item"}`);
+        return false;
+      });
+      const inspectedUrls = (Array.isArray(obj.inspected_urls) ? obj.inspected_urls : []).filter(row => isAllowedDomainUrl(row.url || ""));
+      const sourceChecks = (Array.isArray(obj.source_checks) ? obj.source_checks : []).filter(row => isAllowedDomainUrl(row.url || row.source || ""));
+      if (extractedFacts.length || documentationLinks.length || contents.length || inspectedUrls.length) {
+        warnings.unshift("Perplexity used domain-limited fallback evidence. Review sources carefully; exact URL fetching may have failed.");
+      }
+      return {
+        status: obj.status || "ok",
+        product_name_anchor: obj.product_name_anchor || "",
+        manufacturer: obj.manufacturer || "",
+        inspected_urls: inspectedUrls,
+        extracted_facts: extractedFacts,
+        evidence_facts: extractedFacts,
+        contents,
+        documentation_links: documentationLinks,
+        source_checks: sourceChecks,
+        warnings
+      };
+    }
+
+    function normaliseSourceExtraction(value, sourceUrls) {
+      const obj = value && typeof value === "object" ? value : {};
+      const allowedPageSet = new Set((sourceUrls || []).map(canonicalAllowedUrl).filter(Boolean));
+      const warnings = Array.isArray(obj.warnings) ? [...obj.warnings] : [];
+      const rawDocs = Array.isArray(obj.documentation_links) ? obj.documentation_links : [];
+      const documentationLinks = rawDocs.filter(doc => {
+        const sourcePageAllowed = allowedPageSet.has(canonicalAllowedUrl(doc.source_page || doc.source || ""));
+        if (sourcePageAllowed && /^https?:\/\//i.test(String(doc.url || ""))) return true;
+        warnings.push(`Filtered Gemini document outside supplied source pages: ${doc.url || "unknown URL"}`);
+        return false;
+      });
+      const allowedEvidenceUrls = new Set([...allowedPageSet]);
+      for (const doc of documentationLinks) allowedEvidenceUrls.add(canonicalAllowedUrl(doc.url || ""));
+
+      const rawFacts = Array.isArray(obj.extracted_facts)
+        ? obj.extracted_facts
+        : (Array.isArray(obj.evidence_facts) ? obj.evidence_facts : []);
+      const extractedFacts = rawFacts.filter(fact => {
+        const url = canonicalAllowedUrl(fact.supported_by_url || fact.url || "");
+        if (url && allowedEvidenceUrls.has(url)) return true;
+        warnings.push(`Filtered Gemini fact because its support URL was outside the supplied URLs/documents: ${fact.supported_by_url || fact.url || "missing URL"}`);
+        return false;
+      });
+      const contents = (Array.isArray(obj.contents) ? obj.contents : []).filter(item => {
+        const url = canonicalAllowedUrl(item.supported_by_url || item.url || "");
+        if (url && allowedEvidenceUrls.has(url)) return true;
+        warnings.push(`Filtered Gemini contents item outside supplied URLs/documents: ${item.item || item.name || "unknown item"}`);
+        return false;
+      });
+      const inspectedUrls = (Array.isArray(obj.inspected_urls) ? obj.inspected_urls : []).filter(row => {
+        const url = canonicalAllowedUrl(row.url || "");
+        return url && allowedPageSet.has(url);
+      });
+      const sourceChecks = (Array.isArray(obj.source_checks) ? obj.source_checks : []).filter(row => {
+        const url = canonicalAllowedUrl(row.url || row.source || "");
+        return url && allowedPageSet.has(url);
+      });
+
+      return {
+        status: obj.status || "ok",
+        product_name_anchor: obj.product_name_anchor || "",
+        manufacturer: obj.manufacturer || "",
+        inspected_urls: inspectedUrls,
+        extracted_facts: extractedFacts,
+        evidence_facts: extractedFacts,
+        contents,
+        documentation_links: documentationLinks,
+        source_checks: sourceChecks,
+        warnings
+      };
+    }
+
+    function extractShopifyOptionsFromVariantEvidence(variantEvidence) {
+      const optionMap = new Map();
+      for (const row of variantEvidence || []) {
+        for (const [key, value] of Object.entries(row || {})) {
+          const m = String(key).match(/^Option\s*(\d+)\s*(Name|Value)$/i) || String(key).match(/^Option(\d+)(Name|Value)$/i);
+          if (!m) continue;
+          const idx = m[1];
+          const kind = m[2].toLowerCase();
+          if (!optionMap.has(idx)) optionMap.set(idx, { name: `Option ${idx}`, values: new Set() });
+          const opt = optionMap.get(idx);
+          if (kind === "name" && String(value || "").trim()) opt.name = String(value).trim();
+          if (kind === "value" && String(value || "").trim()) opt.values.add(String(value).trim());
+        }
+      }
+      return [...optionMap.values()].map(opt => ({ name: opt.name, values: [...opt.values].slice(0, 30) })).filter(opt => opt.values.length);
+    }
+
+    function getSourceUrlsForResearch(productRecord, maxUrls) {
+      const urls = [];
+      const add = value => {
+        const text = String(value || "").trim();
+        if (!/^https?:\/\//i.test(text)) return;
+        if (!urls.includes(text)) urls.push(text);
+      };
+      String(productRecord.SOURCE_URLS || "")
+        .split(/\r?\n|\s+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .forEach(add);
+      return urls.slice(0, maxUrls || 18);
+    }
+
+    function parseJsonFromModelText(text) {
+      const raw = String(text || "").trim();
+      if (!raw) throw new Error("Empty model response");
+      try { return JSON.parse(raw); } catch (err) {}
+      const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      if (fenced) {
+        try { return JSON.parse(fenced[1]); } catch (err) {}
+      }
+      const first = raw.indexOf("{");
+      const last = raw.lastIndexOf("}");
+      if (first >= 0 && last > first) return JSON.parse(raw.slice(first, last + 1));
+      throw new Error("Could not parse JSON from model response: " + raw.slice(0, 500));
+    }
+
+    function canonicalAllowedUrl(value) {
+      try {
+        const url = new URL(String(value || "").trim());
+        url.hash = "";
+        const qs = [...url.searchParams.entries()].sort(([a], [b]) => a.localeCompare(b));
+        url.search = "";
+        for (const [key, val] of qs) url.searchParams.append(key, val);
+        return url.toString().replace(/\/$/, "");
+      } catch (err) {
+        return "";
+      }
+    }
+
+        async function runGenerationRequest({
+      apiKey,
+      model,
+      productRecord,
+      userRevisionComment,
+      previousGeneration,
+      previousQa,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0.2,
+        messages: [
+          {
+            role: "system",
+            content: generationSystemPrompt()
+          },
+          {
+            role: "user",
+            content: buildGenerationPrompt({
+              productRecord,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch,
+              userRevisionComment,
+              previousGeneration,
+              previousQa
+            })
+          }
+        ],
+        response_format: generationResponseFormat()
+      };
+
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "generation" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+        async function runQaRequest({
+      apiKey,
+      model,
+      productRecord,
+      generationResult,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      qaStage,
+      previousQaAudit,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content: qaSystemPrompt()
+          },
+          {
+            role: "user",
+            content: buildQaEvidencePrompt({
+              productRecord,
+              generationResult,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch,
+              userRevisionComment,
+              qaStage,
+              previousQaAudit
+            })
+          }
+        ],
+        response_format: qaResponseFormat()
+      };
+
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: qaStage || "QA" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+    async function runAccuracyQaRequest({
+      apiKey,
+      model,
+      productRecord,
+      generationResult,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0,
+        top_p: 0.05,
+        messages: [
+          { role: "system", content: qaAccuracySystemPrompt() },
+          {
+            role: "user",
+            content: buildAccuracyQaPrompt({
+              productRecord,
+              generationResult,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch,
+              userRevisionComment
+            })
+          }
+        ],
+        response_format: qaResponseFormat()
+      };
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "QA accuracy/corroboration" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+    async function runCleanlinessQaRequest({
+      apiKey,
+      model,
+      productRecord,
+      generationResult,
+      previousQaAudit,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0,
+        top_p: 0.05,
+        messages: [
+          { role: "system", content: qaCleanlinessSystemPrompt() },
+          {
+            role: "user",
+            content: buildCleanlinessQaPrompt({
+              productRecord,
+              generationResult,
+              previousQaAudit,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch,
+              userRevisionComment
+            })
+          }
+        ],
+        response_format: qaResponseFormat()
+      };
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "QA cleanliness/field placement" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+    async function runFinalQaRepairRequest({
+      apiKey,
+      model,
+      productRecord,
+      generationResult,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0,
+        top_p: 0.05,
+        messages: [
+          {
+            role: "system",
+            content:
+              qaSystemPrompt() +
+              " You must return QA plus a repaired recommended_changes object. This is the final step. " +
+              "If a claim is source-supported but inappropriate for ecommerce copy, remove it from recommended_changes."
+          },
+          {
+            role: "user",
+            content: buildFinalQaRepairPrompt({
+              productRecord,
+              generationResult,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch,
+              userRevisionComment
+            })
+          }
+        ],
+        response_format: qaResponseFormat()
+      };
+
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "final Gemini QA repair" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+    function buildAccuracyQaPrompt({
+      productRecord,
+      generationResult,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      userRevisionComment
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      return [
+        "QA 1: evidence accuracy and corroboration.",
+        "Verify the draft product output against the supplied evidence only.",
+        "Find mistakes, false claims, unsupported paraphrasing, meaning changes, unsupported clinical/regulatory claims, and claims that are source-supported but unsafe or inappropriate for ecommerce copy.",
+        "Check product/source mismatch: confirm each source, document, extracted fact and source_html item is about the same product family as product_identity.product_name_anchor and the expected manufacturer/brand when supplied.",
+        "If a source page, document title, URL, page text, manufacturer, model name, SKU, variant label or extracted fact appears to describe a different product, a different brand, an unrelated category, or only an unrelated/variant product, mark it as mismatched and do not use it for final customer-facing output.",
+        "Remove unsupported, unsafe, duplicated, mismatched, variant-level, or non-customer-facing content when it cannot be supported by matching evidence.",
+        "Return QA fields plus recommended_changes containing the corrected product_enrichment JSON after evidence repair.",
+        "Use only the supplied evidence. Do not use general knowledge. Do not invent missing facts.",
+        "Important distinction: evidence extraction/access/debug warnings are not customer-facing product warnings. Only put product-facing warnings in recommended_changes.warnings. Put extraction/access/debug issues in the QA summary/issues/source_checks, not in final product warnings.",
+        "If supported product facts exist and long_description is empty, write a short conservative 1-3 sentence description from supported facts only.",
+        "If source evidence is accessible but appears to be for a different product than the product identity, treat that evidence as unusable and fail closed unless another matching source supports the output.",
+        "If no usable matching source facts were extracted, recommended_changes must contain product_name only and empty copy/specs/sources/documentation with a warning. Do not salvage copy from memory.",
+        userRevisionComment ? `Reviewer comment:\n${userRevisionComment}` : "Reviewer comment: none",
+        qaAccuracyRulesText(),
+        "evidence_pack:",
+        JSON.stringify(evidencePack, null, 2),
+        "Draft product output to verify:",
+        JSON.stringify(generationResult || {}, null, 2)
+      ].join("\n\n");
+    }
+
+    function buildCleanlinessQaPrompt({
+      productRecord,
+      generationResult,
+      previousQaAudit,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      userRevisionComment
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      return [
+        "QA 2: data cleanliness, field placement, parent-level structure and customer relevance.",
+        "Start from the evidence-repaired output and the previous QA accuracy result.",
+        "Enforce that each data point lives in the correct output field and is not duplicated across fields.",
+        "Check that specs are not hidden only in long_description/bullets while specs is empty, and that specs does not contain variant differentiators or generic metadata.",
+        "Write parent-level copy only. Variant differentiators must not be copied into parent-level description, bullets, specs, or contents unless the fact clearly applies to all variants.",
+        "Pack sizes, colours, gauges, depths, dimensions, UOMs, kit options, and SKUs are usually variant-level if they differ between variants. Verify this using evidence_pack.variant_structure.",
+        "Check whether every data point belongs on a customer-facing ecommerce page for a customer who wants this product. Remove random, internal, debug, source-access, regulatory/SDS hazard or irrelevant information from final customer fields.",
+        "Check source/product consistency again at field level: sources and documentation must match the final product identity and must not be for unrelated products, unrelated categories, wrong manufacturers, or variant-only pages unless specifically supporting a retained parent-level fact.",
+        "Return QA fields plus recommended_changes containing the final cleaned product_enrichment JSON.",
+        userRevisionComment ? `Reviewer comment:\n${userRevisionComment}` : "Reviewer comment: none",
+        "Previous QA accuracy result:",
+        JSON.stringify(previousQaAudit || {}, null, 2),
+        qaCleanlinessRulesText(),
+        "evidence_pack:",
+        JSON.stringify(evidencePack, null, 2),
+        "Evidence-repaired output to clean:",
+        JSON.stringify(generationResult || {}, null, 2)
+      ].join("\n\n");
+    }
+
+    function buildFinalQaRepairPrompt({
+      productRecord,
+      generationResult,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      userRevisionComment
+    }) {
+      const evidencePack = buildEvidencePack(productRecord, relatedHtmlAttachments || [], variantEvidence || [], sourceResearch || null);
+      return [
+        "Final QA and repair step.",
+        "Review the field-split product JSON against evidence_pack.source_extraction only.",
+        "Return QA fields plus recommended_changes containing the final corrected product_enrichment JSON.",
+        "If evidence_pack has no usable extracted source facts, recommended_changes must contain product_name only and empty copy/specs/sources/documentation, with a warning. Do not salvage copy from general knowledge.",
+        "Remove unsupported claims, duplicate bullets, generic metadata specs, variant-level content, irrelevant sources/docs, and SDS/regulatory hazard statements used as marketing claims.",
+        "Keep matching SDS/PDF/document links in documentation only. Put kit/component lists in contents. Specs must be typed scalar JSON values only.",
+        userRevisionComment ? `Reviewer comment:\n${userRevisionComment}` : "Reviewer comment: none",
+        qaRulesText(),
+        "evidence_pack:",
+        JSON.stringify(evidencePack, null, 2),
+        "Field-split product output to QA and repair:",
+        JSON.stringify(generationResult || {}, null, 2)
+      ].join("\n\n");
+    }
+
+        async function runRepairRequest({
+      apiKey,
+      model,
+      productRecord,
+      initialGeneration,
+      qaAudit,
+      userRevisionComment,
+      relatedHtmlAttachments,
+      variantEvidence,
+      sourceResearch,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0.1,
+        messages: [
+          {
+            role: "system",
+            content:
+              generationSystemPrompt() +
+              " You are now acting as the QA repair step. You must produce the corrected final product output, not another critique. " +
+              "Use the QA audit to remove or rewrite bad content. Do not preserve bad specs or duplicate bullets. " +
+              "If specs are only brand, manufacturer, product type, category, supplier, or variant options, return specs as {}. " +
+              "If the output cannot be made safe from the evidence, keep the best conservative fields and add warnings."
+          },
+          {
+            role: "user",
+            content: buildRepairPrompt({
+              productRecord,
+              initialGeneration,
+              qaAudit,
+              userRevisionComment,
+              relatedHtmlAttachments,
+              variantEvidence,
+              sourceResearch
+            })
+          }
+        ],
+        response_format: generationResponseFormat()
+      };
+
+      const responseJson = await callOpenRouter({ apiKey, payload, env, label: "QA repair" });
+      return parseOpenRouterContent(responseJson);
+    }
+
+    function generationSystemPrompt() {
+      return (
+        "You split Gemini URL Context extraction evidence into parent-level ecommerce product fields. " +
+        "Use only evidence_pack.source_extraction and readable source_html. Return only valid JSON matching the schema. " +
+        "If there is no usable extracted evidence, fail closed: do not generate description, bullets, specs, sources, or documentation. " +
+        "Do not invent claims or use general knowledge. Do not turn SDS/regulatory hazard classifications into marketing copy. " +
+        "Keep sources tied to the specific URL/document that supported the final output."
+      );
+    }
+
+    function qaSystemPrompt() {
+      return qaAccuracySystemPrompt();
+    }
+
+    function qaAccuracySystemPrompt() {
+      return (
+        "You are QA Manager 1 for ecommerce medical-product enrichment: evidence accuracy, source corroboration and product/source identity mismatch. " +
+        "Verify every customer-facing claim against the supplied evidence pack only, and verify the evidence actually describes the same product family. Do not use general knowledge. " +
+        "Return valid JSON matching the QA schema. recommended_changes must be the corrected product output after evidence repair."
+      );
+    }
+
+    function qaCleanlinessSystemPrompt() {
+      return (
+        "You are QA Manager 2 for ecommerce medical-product enrichment: data cleanliness, field placement, variant exclusion, source/product consistency and customer relevance. " +
+        "Use the supplied evidence pack and prior QA result only. Do not do new research or use general knowledge. " +
+        "Return valid JSON matching the QA schema. recommended_changes must be the final cleaned product output."
+      );
+    }
+
+    function qaRulesText() {
+      return qaAccuracyRulesText() + "\n" + qaCleanlinessRulesText();
+    }
+
+    function qaAccuracyRulesText() {
+      return (
+        "Scoring: 90-100 publishable, 70-89 mostly trustworthy, 50-69 needs review, 25-49 risky, 0-24 reject.\n" +
+        "Verify product_name, description, bullets, specs, contents, documentation and sources against evidence_pack.source_extraction and readable source_html only. " +
+        "Find mistakes, false claims, unsupported claims, paraphrasing that changes meaning, claims that overstate the evidence, and product/source mismatches. " +
+        "A source or document is usable only if it clearly matches the product identity, product family, manufacturer/brand, model name, or a confirmed parent/variant relationship. " +
+        "If the source describes a different product, wrong category, wrong manufacturer, unrelated page, unrelated document, or only an irrelevant variant, mark it low/unknown and remove facts from it. " +
+        "A claim can be source-supported but still inappropriate for customer-facing ecommerce copy. " +
+        "Remove SDS/regulatory hazard statements used as marketing benefits, including no known health hazards, not carcinogenic, no OSHA hazards, not hazardous, or similar claims. Keep matching SDS links in documentation only. " +
+        "If no matching source facts were extracted, trust_score must be 0 and recommended_changes must not contain generated copy. If source facts exist but are mismatched to the product identity, treat them as no usable evidence. " +
+        "If supported product facts exist and long_description is empty, write a short conservative 1-3 sentence description from supported facts only. " +
+        "Do not put extraction/access/debug warnings into recommended_changes.warnings; put them in QA issues, source_checks or summary. " +
+        "Final sources must include only sources that support claims in recommended_changes and match the final product identity. Do not include failed, blocked, unrelated, mismatched, wrong-product or low-relevance sources unless a final claim specifically depends on them and the relationship is explained in source_checks."
+      );
+    }
+
+    function qaCleanlinessRulesText() {
+      return (
+        "Cleanliness rules: check field placement, duplication, variant exclusion and customer relevance. " +
+        "Do not spread the same data across multiple fields unnecessarily. long_description is narrative overview; bullet_features are distinct scannable facts; specs are typed scalar attributes; contents is only kit/component lists; documentation is product-specific docs. " +
+        "Specs must not be hidden only in long_description or bullets when they are useful product attributes. Move supported attributes into specs. " +
+        "Specs must not include brand, manufacturer, product type, product family, category, supplier, source names, marketing sentences, or restatements of the product name. " +
+        "Write parent-level copy only. Check evidence_pack.variant_structure: variant differentiators must not be copied into parent-level description, bullets, specs, or contents unless the fact clearly applies to all variants. " +
+        "Pack sizes, colours, gauges, depths, dimensions, UOMs, kit options, test areas and SKUs are usually variant-level if they differ between variants. " +
+        "Empty contents is acceptable and should not be penalised unless evidence clearly shows a kit, pack, tray, set, procedure pack or component list. " +
+        "Empty documentation is acceptable when no relevant product-specific documents were found. Exclude generic company policies, unrelated certificates, generic catalogues, wrong-product documents and irrelevant documents. " +
+        "Sources and documentation must match the final parent product identity; remove wrong-product, wrong-brand, unrelated-category, mismatched or variant-only sources unless they directly support a retained parent-level fact. " +
+        "Remove random, internal, debug, source-access, regulatory/SDS hazard or non-customer-relevant information from final customer-facing fields."
+      );
+    }
+
+
+    async function callOpenRouter({ apiKey, payload, env, label }) {
+      const response = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+          "HTTP-Referer": env.OPENROUTER_HTTP_REFERER || "https://farla.co.uk",
+          "X-Title": env.OPENROUTER_X_TITLE || "Farla Product Enrichment"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const responseJson = await response.json();
+
+      if (!response.ok) {
+        throw new Error("OpenRouter " + label + " error: " + JSON.stringify(responseJson, null, 2));
+      }
+
+      return responseJson;
+    }
+
+    function parseOpenRouterContent(responseJson) {
+      const content = responseJson?.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error("Unexpected OpenRouter response shape: " + JSON.stringify(responseJson, null, 2));
+      }
+
+      return typeof content === "string" ? JSON.parse(content) : content;
+    }
+
+    async function writeGenerationToReviewRow(result, qa) {
+      const fieldsToWrite = {
+        [outputFields.product_name]: result.product_name || "",
+        [outputFields.long_description]: result.long_description || "",
+        [outputFields.bullet_features]: Array.isArray(result.bullet_features)
+          ? result.bullet_features.join("\n")
+          : String(result.bullet_features || ""),
+        [outputFields.specs]: typeof result.specs === "string"
+          ? result.specs
+          : JSON.stringify(result.specs || {}, null, 2),
+        [outputFields.sources]: Array.isArray(result.sources)
+          ? result.sources.join("\n")
+          : String(result.sources || ""),
+        [outputFields.warnings]: Array.isArray(result.warnings)
+          ? result.warnings.join("\n")
+          : String(result.warnings || "")
+      };
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.contents)) {
+        fieldsToWrite[outputFields.contents] = formatContentsForGrist(result.contents || []);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.documentation)) {
+        fieldsToWrite[outputFields.documentation] = formatDocumentationForGrist(result.documentation || []);
+      }
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, fieldsToWrite]
+      ]);
+    }
+
+    function formatContentsForGrist(contents) {
+      if (!Array.isArray(contents) || !contents.length) return "";
+      return JSON.stringify(contents, null, 2);
+    }
+
+    function formatDocumentationForGrist(documentation) {
+      if (!Array.isArray(documentation) || !documentation.length) return "";
+      return documentation.map((doc, index) => {
+        if (typeof doc === "string") return doc;
+        return [
+          `${index + 1}. ${doc.title || doc.text || doc.url || "Document"}`,
+          doc.type ? `Type: ${doc.type}` : "",
+          doc.relevance ? `Relevance: ${doc.relevance}` : "",
+          doc.url ? `URL: ${doc.url}` : "",
+          doc.source_page ? `Found on: ${doc.source_page}` : "",
+          doc.notes ? `Notes: ${doc.notes}` : ""
+        ].filter(Boolean).join("\n");
+      }).join("\n\n");
+    }
+
+    async function refreshCurrentRow() {
+      const table = await grist.docApi.fetchTable(PRODUCT_TABLE_ID);
+      const newRows = tableToRecords(table);
+      const updated = newRows.find(r => r.id === currentRecord.id);
+
+      if (updated) {
+        rows = newRows.filter(row => {
+          return row.GROUP_SKU || row.RESOLVED_PARENT_TITLE || row.PARENT_LABEL || row.CLEAN_PRODUCT_INFO || row.PRODUCT_INFO;
+        });
+        currentRecord = updated;
+        currentIndex = rows.findIndex(r => r.id === updated.id);
+        renderCurrentRecord();
+        renderHtmlAttachmentInfo(latestRelatedHtmlAttachments);
+      }
+    }
+
+    async function saveRejectMessage(comment) {
+      if (!currentRecord) return;
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
+          REJECT_MESSAGE: comment
+        }]
+      ]);
+    }
+
+    async function approveCurrentResult() {
+      if (!currentRecord) {
+        setStatus("No product row selected.", "error");
+        return;
+      }
+
+      setButtonsDisabled(true);
+
+      try {
+        await saveEditedFinalOutputFromUi();
+        await refreshCurrentRow();
+        setStatus("Edited final output saved. Approval/status is formula-driven, so no formula columns were written.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function saveEditedFinalOutputFromUi() {
+      if (!currentRecord) return;
+
+      const fieldsToWrite = collectEditedFinalOutputFields();
+
+      await grist.docApi.applyUserActions([
+        ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, fieldsToWrite]
+      ]);
+    }
+
+    function collectEditedFinalOutputFields() {
+      const fieldsToWrite = {
+        [outputFields.product_name]: getEditableValue("finalProductName"),
+        [outputFields.long_description]: getEditableValue("finalLongDescription"),
+        [outputFields.bullet_features]: getEditableValue("finalBullets"),
+        [outputFields.specs]: getEditableValue("finalSpecs"),
+        [outputFields.sources]: getEditableValue("finalSources"),
+        [outputFields.warnings]: getEditableValue("finalWarnings")
+      };
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.contents)) {
+        fieldsToWrite[outputFields.contents] = getEditableValue("finalContents");
+      }
+
+      if (Object.prototype.hasOwnProperty.call(currentRecord || {}, outputFields.documentation)) {
+        fieldsToWrite[outputFields.documentation] = getEditableValue("finalDocumentation");
+      }
+
+      return fieldsToWrite;
+    }
+
+    async function logAiRun({ generationModel, qaModel, initialGeneration, qaAudit, generationResult, qaResult, userRevisionComment, relatedHtmlAttachments, variantEvidence, sourceResearch }) {
+      try {
+        const createdAt = Math.floor(Date.now() / 1000);
+        const finalJson = { source_extraction: sourceResearch || {}, field_split_output: initialGeneration || generationResult, final_qa_and_repair: qaResult || {}, final_output_after_qa_repair: generationResult };
+        const attachmentSummary = formatAttachmentSummaryForLog(relatedHtmlAttachments || []);
+
+        const result = await grist.docApi.applyUserActions([
+          ["AddRecord", RUNS_TABLE_ID, null, {
+            GROUP_SKU: currentRecord.GROUP_SKU || "",
+            CREATED_AT: createdAt,
+            MODEL_1: generationModel,
+            MODEL_1_OUTPUT: JSON.stringify(initialGeneration || generationResult, null, 2),
+            MODEL_2: qaModel,
+            MODEL_2_OUTPUT: JSON.stringify({ qa_audit: qaAudit || {}, final_qa: qaResult || {} }, null, 2),
+            FINAL_JSON: JSON.stringify(finalJson, null, 2),
+            FINAL_PRODUCT_NAME: generationResult.product_name || "",
+            FINAL_LONG_DESCRIPTION: generationResult.long_description || "",
+            FINAL_BULLETS: Array.isArray(generationResult.bullet_features) ? generationResult.bullet_features.join("\n") : "",
+            FINAL_SPECS: JSON.stringify(generationResult.specs || {}, null, 2),
+            FINAL_SOURCES: Array.isArray(generationResult.sources) ? generationResult.sources.join("\n") : "",
+            FINAL_WARNINGS: Array.isArray(generationResult.warnings) ? generationResult.warnings.join("\n") : "",
+            WARNINGS: JSON.stringify({
+              generation_warnings: generationResult.warnings || [],
+              qa_issues: qaResult.issues || [],
+              unsupported_claims: qaResult.unsupported_claims || [],
+              html_attachment_summary: attachmentSummary,
+              source_extraction_warnings: (sourceResearch && sourceResearch.warnings) || []
+            }, null, 2),
+            PROMPT_SENT: buildGenerationPrompt({
+              productRecord: currentRecord,
+              relatedHtmlAttachments: relatedHtmlAttachments || [],
+              variantEvidence: variantEvidence || [],
+              sourceResearch: sourceResearch || null,
+              userRevisionComment: userRevisionComment || "",
+              previousGeneration: generationResult || initialGeneration || null,
+              previousQa: qaResult || qaAudit || null
+            }),
+            HTML_URLS_SENT: attachmentSummary,
+            SOURCE_FINGERPRINT: currentRecord.SOURCE_FINGERPRINT || "",
+            RUN_STATUS: qaResult.publish_recommendation || "review",
+            ACTION: userRevisionComment ? "Rerun after rejection" : "Generated",
+            APPROVED: false,
+            HUMAN_NOTES: userRevisionComment || ""
+          }]
+        ]);
+
+        if (Array.isArray(result) && result[0]) latestRunRowId = result[0];
+      } catch (err) {
+        console.warn("Could not log AI run. Continuing.", err);
+      }
+    }
+
+    function formatAttachmentSummaryForLog(attachments) {
+      if (!attachments || !attachments.length) return "No related HTML attachments found.";
+
+      return attachments.map((att, index) => {
+        return [
+          `Attachment ${index + 1}`,
+          `HTML row ID: ${att.html_row_id}`,
+          `Product SKU: ${att.product_sku}`,
+          `URL: ${att.url}`,
+          `Response code: ${att.response_code}`,
+          `Attachment ID: ${att.attachment_id}`,
+          `Text chars sent: ${att.text ? att.text.length : 0}`,
+          `Document links found: ${Array.isArray(att.document_links) ? att.document_links.length : 0}`,
+          att.error ? `Error: ${att.error}` : ""
+        ].filter(Boolean).join(" | ");
+      }).join("\n");
+    }
+
+    function renderQa(qa) {
+      const score = Number(qa.trust_score || 0);
+      const recommendation = qa.publish_recommendation || "review";
+      const safe = qa.safe_to_publish ? "Yes" : "No";
+
+      document.getElementById("qaSummary").innerHTML =
+        `<div class="score">${score}/100</div>` +
+        `<div><strong>Recommendation:</strong> ${escapeHtml(recommendation)}</div>` +
+        `<div><strong>Safe to publish:</strong> ${escapeHtml(safe)}</div>` +
+        `<div><strong>Summary:</strong> ${escapeHtml(qa.summary || "")}</div>`;
+
+      document.getElementById("qaOutput").textContent = JSON.stringify(qa, null, 2);
+    }
+
+    function sourceExtractionResponseFormat() {
+      return {
+        type: "json_schema",
+        json_schema: {
+          name: "url_source_extraction",
+          strict: false,
+          schema: {
+            type: "object",
+            additionalProperties: true,
+            properties: {
+              status: { type: "string" },
+              product_name_anchor: { type: "string" },
+              manufacturer: { type: "string" },
+              inspected_urls: { type: "array", items: { type: "object", additionalProperties: true } },
+              extracted_facts: { type: "array", items: { type: "object", additionalProperties: true } },
+              contents: { type: "array", items: { type: "object", additionalProperties: true } },
+              documentation_links: { type: "array", items: { type: "object", additionalProperties: true } },
+              source_checks: { type: "array", items: { type: "object", additionalProperties: true } },
+              warnings: { type: "array", items: { type: "string" } }
+            }
+          }
+        }
+      };
+    }
+
+    function generationResponseFormat() {
+      return {
+        type: "json_schema",
+        json_schema: {
+          name: "product_enrichment",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              product_name: { type: "string" },
+              long_description: { type: "string" },
+              bullet_features: { type: "array", items: { type: "string" } },
+              contents: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    item: { type: "string" },
+                    quantity: { anyOf: [{ type: "number" }, { type: "string" }] },
+                    notes: { type: "string" }
+                  },
+                  required: ["item", "quantity", "notes"],
+                  additionalProperties: false
+                }
+              },
+              specs: { type: "object", additionalProperties: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } },
+              sources: { type: "array", items: { type: "string" } },
+              documentation: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    type: { type: "string", enum: ["brochure", "instructions_for_use", "ifu", "catalog", "datasheet", "manual", "sds", "declaration", "pdf", "document", "other"] },
+                    url: { type: "string" },
+                    source_page: { type: "string" },
+                    relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                    notes: { type: "string" }
+                  },
+                  required: ["title", "type", "url", "source_page", "relevance", "notes"],
+                  additionalProperties: false
+                }
+              },
+              warnings: { type: "array", items: { type: "string" } }
+            },
+            required: ["product_name", "long_description", "bullet_features", "contents", "specs", "sources", "documentation", "warnings"],
+            additionalProperties: false
+          }
+        }
+      };
+    }
+
+    function qaResponseFormat() {
+      return {
+        type: "json_schema",
+        json_schema: {
+          name: "product_content_qa",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              trust_score: { type: "number" },
+              publish_recommendation: { type: "string", enum: ["publish", "review", "reject"] },
+              summary: { type: "string" },
+              issues: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    severity: { type: "string", enum: ["low", "medium", "high"] },
+                    field: { type: "string", enum: ["product_name", "long_description", "bullet_features", "contents", "specs", "sources", "documentation", "warnings", "general"] },
+                    issue: { type: "string" },
+                    evidence: { type: "string" },
+                    suggested_fix: { type: "string" }
+                  },
+                  required: ["severity", "field", "issue", "evidence", "suggested_fix"],
+                  additionalProperties: false
+                }
+              },
+              unsupported_claims: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    claim: { type: "string" },
+                    why_unsupported: { type: "string" }
+                  },
+                  required: ["claim", "why_unsupported"],
+                  additionalProperties: false
+                }
+              },
+              source_checks: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    source: { type: "string" },
+                    relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                    notes: { type: "string" }
+                  },
+                  required: ["source", "relevance", "notes"],
+                  additionalProperties: false
+                }
+              },
+              field_scores: {
+                type: "object",
+                properties: {
+                  product_name: { type: "number" },
+                  long_description: { type: "number" },
+                  bullet_features: { type: "number" },
+                  contents: { type: "number" },
+                  specs: { type: "number" },
+                  sources: { type: "number" },
+                  documentation: { type: "number" },
+                  warnings: { type: "number" }
+                },
+                required: ["product_name", "long_description", "bullet_features", "contents", "specs", "sources", "documentation", "warnings"],
+                additionalProperties: false
+              },
+              safe_to_publish: { type: "boolean" },
+              recommended_changes: {
+                type: "object",
+                properties: {
+                  product_name: { type: "string" },
+                  long_description: { type: "string" },
+                  bullet_features: { type: "array", items: { type: "string" } },
+                  contents: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        item: { type: "string" },
+                        quantity: { anyOf: [{ type: "number" }, { type: "string" }] },
+                        notes: { type: "string" }
+                      },
+                      required: ["item", "quantity", "notes"],
+                      additionalProperties: false
+                    }
+                  },
+                  specs: { type: "object", additionalProperties: { anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] } },
+                  sources: { type: "array", items: { type: "string" } },
+                  documentation: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        title: { type: "string" },
+                        type: { type: "string", enum: ["brochure", "instructions_for_use", "ifu", "catalog", "datasheet", "manual", "sds", "declaration", "pdf", "document", "other"] },
+                        url: { type: "string" },
+                        source_page: { type: "string" },
+                        relevance: { type: "string", enum: ["high", "medium", "low", "unknown"] },
+                        notes: { type: "string" }
+                      },
+                      required: ["title", "type", "url", "source_page", "relevance", "notes"],
+                      additionalProperties: false
+                    }
+                  },
+                  warnings: { type: "array", items: { type: "string" } }
+                },
+                required: ["product_name", "long_description", "bullet_features", "contents", "specs", "sources", "documentation", "warnings"],
+                additionalProperties: false
+              }
+            },
+            required: ["trust_score", "publish_recommendation", "summary", "issues", "unsupported_claims", "source_checks", "field_scores", "safe_to_publish", "recommended_changes"],
+            additionalProperties: false
+          }
+        }
+      };
+    }
+
+    function setStatus(message, cls) {
+      const el = document.getElementById("status");
+      el.textContent = message;
+      el.className = "status " + (cls || "");
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.getElementById("reloadBtn").disabled = disabled;
+      document.getElementById("prevBtn").disabled = disabled || currentIndex === 0;
+      document.getElementById("nextBtn").disabled = disabled || currentIndex === rows.length - 1;
+      document.getElementById("generateBtn").disabled = disabled;
+      document.getElementById("approveBtn").disabled = disabled;
+      document.getElementById("denyBtn").disabled = disabled;
+    }
+
+    function setText(id, value) {
+      document.getElementById(id).textContent = value == null || value === "" ? "-" : String(value);
+    }
+
+    function setEditableValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = value == null ? "" : String(value);
+    }
+
+    function getEditableValue(id) {
+      const el = document.getElementById(id);
+      return el ? String(el.value || "") : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+  
+  </script>
+</body>
+</html>
