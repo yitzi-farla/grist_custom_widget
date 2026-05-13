@@ -161,9 +161,7 @@
       font-weight: 800;
     }
 
-    a {
-      color: #1f6feb;
-    }
+    a { color: #1f6feb; }
 
     details summary {
       cursor: pointer;
@@ -229,6 +227,11 @@
     </details>
 
     <details>
+      <summary>Related HTML Attachments Sent To AI</summary>
+      <pre id="htmlAttachmentInfo">No HTML attachments loaded yet.</pre>
+    </details>
+
+    <details>
       <summary>AI Prompt Sent</summary>
       <pre id="aiPrompt">-</pre>
     </details>
@@ -243,7 +246,7 @@
     </div>
 
     <p class="muted">
-      Deny comment is sent back to AI with the previous output and QA result.
+      Deny comment is sent back to AI with the previous output, QA result, and related HTML attachment text.
     </p>
 
     <textarea id="denyComment" placeholder="Example: Remove unsupported accuracy wording. Product name should stay closer to source. Specs need source support."></textarea>
@@ -297,8 +300,11 @@
 
   <script>
     const PRODUCT_TABLE_ID = "Naneth_AI_Review";
+    const HTML_TABLE_ID = "Naneth_HTML";
     const RUNS_TABLE_ID = "Naneth_AI_Runs";
     const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+    const MAX_HTML_CHARS_PER_ATTACHMENT = 20000;
+    const MAX_TOTAL_HTML_CHARS = 60000;
 
     const outputFields = {
       product_name: "FINAL_PRODUCT_NAME",
@@ -315,6 +321,7 @@
     let latestGeneration = null;
     let latestQa = null;
     let latestRunRowId = null;
+    let latestRelatedHtmlAttachments = [];
 
     grist.ready({ requiredAccess: "full" });
 
@@ -353,6 +360,7 @@
         currentIndex = readyIndex >= 0 ? readyIndex : 0;
         currentRecord = rows[currentIndex];
 
+        clearLatestResults();
         renderCurrentRecord();
         setStatus(`Loaded ${rows.length} product rows.`, "ok");
 
@@ -400,9 +408,11 @@
       latestGeneration = null;
       latestQa = null;
       latestRunRowId = null;
+      latestRelatedHtmlAttachments = [];
       document.getElementById("generationOutput").textContent = "No generation yet.";
       document.getElementById("qaSummary").textContent = "No QA result yet.";
       document.getElementById("qaOutput").textContent = "No QA result yet.";
+      document.getElementById("htmlAttachmentInfo").textContent = "No HTML attachments loaded yet.";
       document.getElementById("denyComment").value = "";
     }
 
@@ -498,7 +508,15 @@
           throw new Error("Missing OPENROUTER_API_KEY in Env table.");
         }
 
-        setStatus(`Running generation for ${currentRecord.GROUP_SKU || currentRecord.id}...`, "warn");
+        setStatus(`Loading related HTML attachments for ${currentRecord.GROUP_SKU || currentRecord.id}...`, "warn");
+
+        latestRelatedHtmlAttachments = await loadRelatedHtmlAttachments(currentRecord);
+        renderHtmlAttachmentInfo(latestRelatedHtmlAttachments);
+
+        setStatus(
+          `Found ${latestRelatedHtmlAttachments.length} related HTML attachment(s). Running generation for ${currentRecord.GROUP_SKU || currentRecord.id}...`,
+          "warn"
+        );
 
         latestGeneration = await runGenerationRequest({
           apiKey,
@@ -507,13 +525,14 @@
           userRevisionComment,
           previousGeneration: latestGeneration,
           previousQa: latestQa,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
           env
         });
 
         document.getElementById("generationOutput").textContent =
           JSON.stringify(latestGeneration, null, 2);
 
-        setStatus("Running QA verification...", "warn");
+        setStatus("Running QA verification with the same HTML attachment evidence...", "warn");
 
         latestQa = await runQaRequest({
           apiKey,
@@ -521,6 +540,7 @@
           productRecord: currentRecord,
           generationResult: latestGeneration,
           userRevisionComment,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments,
           env
         });
 
@@ -534,7 +554,8 @@
           qaModel,
           generationResult: latestGeneration,
           qaResult: latestQa,
-          userRevisionComment
+          userRevisionComment,
+          relatedHtmlAttachments: latestRelatedHtmlAttachments
         });
 
         await refreshCurrentRow();
@@ -585,6 +606,287 @@
       return env;
     }
 
+    async function loadRelatedHtmlAttachments(productRecord) {
+      const skuSet = buildSkuSet(productRecord);
+      const expectedHtmlRowIds = normaliseRefList(productRecord.HTML_ROWS);
+
+      let htmlRows = [];
+
+      try {
+        const htmlTable = await grist.docApi.fetchTable(HTML_TABLE_ID);
+        htmlRows = tableToRecords(htmlTable);
+      } catch (err) {
+        console.warn("Could not fetch Naneth_HTML table.", err);
+        return [{
+          html_row_id: "",
+          product_sku: "",
+          url: "",
+          response_code: "",
+          attachment_id: "",
+          error: "Could not fetch Naneth_HTML table: " + (err.message || String(err)),
+          text: ""
+        }];
+      }
+
+      const relatedRows = htmlRows.filter(row => {
+        const rowSku = String(row.PRODUCT_SKU || "").trim();
+        const rowIdMatches = expectedHtmlRowIds.has(Number(row.id));
+        const skuMatches = rowSku && skuSet.has(rowSku);
+        return rowIdMatches || skuMatches;
+      });
+
+      const attachments = [];
+      let totalChars = 0;
+
+      for (const row of relatedRows) {
+        const fileCell = row.FILE_ATTACHED;
+        const attachmentIds = normaliseAttachmentIds(fileCell);
+
+        if (!attachmentIds.length) {
+          attachments.push({
+            html_row_id: row.id,
+            product_sku: row.PRODUCT_SKU || "",
+            url: row.URL || "",
+            response_code: row.RESPONSE_CODE || "",
+            attachment_id: "",
+            error: "Related Naneth_HTML row has no FILE_ATTACHED attachment IDs.",
+            text: ""
+          });
+          continue;
+        }
+
+        for (const attachmentId of attachmentIds) {
+          try {
+            if (totalChars >= MAX_TOTAL_HTML_CHARS) {
+              attachments.push({
+                html_row_id: row.id,
+                product_sku: row.PRODUCT_SKU || "",
+                url: row.URL || "",
+                response_code: row.RESPONSE_CODE || "",
+                attachment_id: attachmentId,
+                error: "Skipped because total HTML evidence character limit was reached.",
+                text: ""
+              });
+              continue;
+            }
+
+            const rawReadableText = await readAttachmentAsText(attachmentId);
+            const remainingChars = Math.max(0, MAX_TOTAL_HTML_CHARS - totalChars);
+            const text = trimForPrompt(rawReadableText, Math.min(MAX_HTML_CHARS_PER_ATTACHMENT, remainingChars));
+            totalChars += text.length;
+
+            attachments.push({
+              html_row_id: row.id,
+              product_sku: row.PRODUCT_SKU || "",
+              url: row.URL || "",
+              response_code: row.RESPONSE_CODE || "",
+              attachment_id: attachmentId,
+              error: "",
+              text
+            });
+          } catch (err) {
+            attachments.push({
+              html_row_id: row.id,
+              product_sku: row.PRODUCT_SKU || "",
+              url: row.URL || "",
+              response_code: row.RESPONSE_CODE || "",
+              attachment_id: attachmentId,
+              error: err.message || String(err),
+              text: ""
+            });
+          }
+        }
+      }
+
+      return attachments;
+    }
+
+    function buildSkuSet(productRecord) {
+      const values = [
+        productRecord.GROUP_SKU,
+        productRecord.VARPAR_SOLOPAR,
+        productRecord.VARIANT_SKUS,
+        productRecord.SUBVARIANT_SKUS
+      ];
+
+      const skuSet = new Set();
+
+      for (const value of values) {
+        String(value || "")
+          .split(/\r?\n|,|;/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .forEach(sku => skuSet.add(sku));
+      }
+
+      return skuSet;
+    }
+
+    function normaliseRefList(value) {
+      const ids = new Set();
+
+      if (!value) return ids;
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item === "L") continue;
+          const n = Number(item && typeof item === "object" ? (item.id || item.rowId) : item);
+          if (Number.isFinite(n)) ids.add(n);
+        }
+        return ids;
+      }
+
+      if (typeof value === "number") {
+        ids.add(value);
+        return ids;
+      }
+
+      if (typeof value === "string") {
+        value
+          .split(/,|\s+/)
+          .map(x => Number(x.trim()))
+          .filter(n => Number.isFinite(n))
+          .forEach(n => ids.add(n));
+      }
+
+      return ids;
+    }
+
+    function normaliseAttachmentIds(fileCell) {
+      if (!fileCell) return [];
+
+      if (Array.isArray(fileCell)) {
+        return fileCell
+          .map(item => {
+            if (item === "L") return null;
+            if (typeof item === "number") return item;
+            if (typeof item === "string") return Number(item);
+            if (item && typeof item === "object") return Number(item.id || item.rowId || item.attachmentId);
+            return null;
+          })
+          .filter(id => Number.isFinite(id));
+      }
+
+      if (typeof fileCell === "number") return [fileCell];
+
+      if (typeof fileCell === "string") {
+        return fileCell
+          .split(/,|\s+/)
+          .map(x => Number(x.trim()))
+          .filter(id => Number.isFinite(id));
+      }
+
+      if (typeof fileCell === "object") {
+        if (Array.isArray(fileCell.items)) return normaliseAttachmentIds(fileCell.items);
+        if (fileCell.id || fileCell.rowId || fileCell.attachmentId) {
+          return [Number(fileCell.id || fileCell.rowId || fileCell.attachmentId)].filter(id => Number.isFinite(id));
+        }
+      }
+
+      return [];
+    }
+
+    async function readAttachmentAsText(attachmentId) {
+      if (!grist.docApi.getAttachmentUrl) {
+        throw new Error("grist.docApi.getAttachmentUrl is not available in this Grist widget API version.");
+      }
+
+      const url = await grist.docApi.getAttachmentUrl(attachmentId);
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Could not fetch attachment ${attachmentId}: HTTP ${response.status}`);
+      }
+
+      const rawText = await response.text();
+      return htmlToReadableText(rawText);
+    }
+
+    function htmlToReadableText(html) {
+      const raw = String(html || "");
+
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(raw, "text/html");
+
+        doc.querySelectorAll("script, style, noscript, svg").forEach(el => el.remove());
+
+        const title = doc.querySelector("title")?.textContent || "";
+        const metaDescription = doc.querySelector('meta[name="description"]')?.getAttribute("content") || "";
+        const h1 = doc.querySelector("h1")?.textContent || "";
+        const bodyText = doc.body ? doc.body.innerText : doc.documentElement.innerText;
+
+        return [
+          title ? `HTML title: ${cleanWhitespace(title)}` : "",
+          metaDescription ? `Meta description: ${cleanWhitespace(metaDescription)}` : "",
+          h1 ? `H1: ${cleanWhitespace(h1)}` : "",
+          cleanWhitespace(bodyText || raw)
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .trim();
+      } catch (err) {
+        return cleanWhitespace(raw);
+      }
+    }
+
+    function cleanWhitespace(text) {
+      return String(text || "")
+        .replace(/\r/g, "")
+        .replace(/[\t ]+/g, " ")
+        .replace(/\n\s*\n\s*\n+/g, "\n\n")
+        .trim();
+    }
+
+    function trimForPrompt(text, maxChars) {
+      const value = String(text || "");
+      if (value.length <= maxChars) return value;
+      return value.slice(0, maxChars) + "\n\n[TRUNCATED FOR PROMPT]";
+    }
+
+    function formatHtmlAttachmentsForPrompt(attachments) {
+      if (!attachments || !attachments.length) {
+        return "No related HTML attachments found.";
+      }
+
+      return attachments.map((att, index) => {
+        return [
+          `--- Related HTML attachment ${index + 1} ---`,
+          `HTML row ID: ${att.html_row_id}`,
+          `Product SKU: ${att.product_sku}`,
+          `Source URL: ${att.url}`,
+          `Response code: ${att.response_code}`,
+          `Attachment ID: ${att.attachment_id}`,
+          att.error ? `Attachment read error: ${att.error}` : "",
+          "",
+          att.text || "[No readable text extracted]"
+        ].filter(line => line !== "").join("\n");
+      }).join("\n\n");
+    }
+
+    function renderHtmlAttachmentInfo(attachments) {
+      if (!attachments || !attachments.length) {
+        document.getElementById("htmlAttachmentInfo").textContent = "No related HTML attachments found.";
+        return;
+      }
+
+      const summary = attachments.map((att, index) => {
+        return [
+          `Attachment ${index + 1}`,
+          `  HTML row ID: ${att.html_row_id}`,
+          `  Product SKU: ${att.product_sku}`,
+          `  Source URL: ${att.url}`,
+          `  Response code: ${att.response_code}`,
+          `  Attachment ID: ${att.attachment_id}`,
+          `  Text chars sent: ${att.text ? att.text.length : 0}`,
+          att.error ? `  Error: ${att.error}` : ""
+        ].filter(Boolean).join("\n");
+      }).join("\n\n");
+
+      document.getElementById("htmlAttachmentInfo").textContent = summary;
+    }
+
     async function runGenerationRequest({
       apiKey,
       model,
@@ -592,6 +894,7 @@
       userRevisionComment,
       previousGeneration,
       previousQa,
+      relatedHtmlAttachments,
       env
     }) {
       let revisionBlock = "";
@@ -617,6 +920,8 @@
               "You are an ecommerce product enrichment assistant for a UK healthcare/medical supplies retailer. " +
               "Return only valid JSON matching the schema. " +
               "Use the field name bullet_features, not bullets. " +
+              "Use related HTML attachment text as source evidence when provided. " +
+              "Prefer manufacturer evidence over supplier evidence. " +
               "Do not invent certifications, compliance claims, dimensions, materials, medical use claims, CE claims, sterile claims, antimicrobial claims, recyclable claims, or regulatory claims. " +
               "If unsure, add the concern to warnings. " +
               "Write parent-level product copy only."
@@ -635,8 +940,11 @@
                 SUBVARIANT_SKUS: productRecord.SUBVARIANT_SKUS,
                 SOURCE_URLS: productRecord.SOURCE_URLS,
                 NANETH_RESEARCH_DATA: productRecord.NANETH_RESEARCH_DATA,
-                HTML_STATUS: productRecord.HTML_STATUS
-              }, null, 2)
+                HTML_STATUS: productRecord.HTML_STATUS,
+                HTML_ROWS: productRecord.HTML_ROWS
+              }, null, 2) +
+              "\n\nRELATED HTML ATTACHMENT TEXT:\n" +
+              formatHtmlAttachmentsForPrompt(relatedHtmlAttachments || [])
           }
         ],
         response_format: generationResponseFormat()
@@ -652,6 +960,7 @@
       productRecord,
       generationResult,
       userRevisionComment,
+      relatedHtmlAttachments,
       env
     }) {
       const payload = {
@@ -662,8 +971,8 @@
             role: "system",
             content:
               "You are a strict ecommerce medical product content QA reviewer. " +
-              "Verify generated ecommerce product content against supplied product data and source evidence. " +
-              "Return only valid JSON matching the schema. Be strict."
+              "Verify generated ecommerce product content against supplied product data, source URLs, and related HTML attachment text. " +
+              "Return only valid JSON matching the schema. Be strict. If a claim is not clearly supported, flag it."
           },
           {
             role: "user",
@@ -680,6 +989,8 @@
               (productRecord.PRODUCT_INFO || "") +
               "\n\nNaneth research data:\n" +
               (productRecord.NANETH_RESEARCH_DATA || "") +
+              "\n\nRelated HTML attachment text:\n" +
+              formatHtmlAttachmentsForPrompt(relatedHtmlAttachments || []) +
               "\n\nSource URLs:\n" +
               (productRecord.SOURCE_URLS || "") +
               "\n\nAI generated output:\n" +
@@ -758,10 +1069,13 @@
       const updated = newRows.find(r => r.id === currentRecord.id);
 
       if (updated) {
-        rows = newRows;
+        rows = newRows.filter(row => {
+          return row.GROUP_SKU || row.PARENT_LABEL || row.PRODUCT_INFO || row.AI_PROMPT;
+        });
         currentRecord = updated;
         currentIndex = rows.findIndex(r => r.id === updated.id);
         renderCurrentRecord();
+        renderHtmlAttachmentInfo(latestRelatedHtmlAttachments);
       }
     }
 
@@ -809,10 +1123,11 @@
       }
     }
 
-    async function logAiRun({ generationModel, qaModel, generationResult, qaResult, userRevisionComment }) {
+    async function logAiRun({ generationModel, qaModel, generationResult, qaResult, userRevisionComment, relatedHtmlAttachments }) {
       try {
         const createdAt = Math.floor(Date.now() / 1000);
         const finalJson = { generation: generationResult, qa: qaResult };
+        const attachmentSummary = formatAttachmentSummaryForLog(relatedHtmlAttachments || []);
 
         const result = await grist.docApi.applyUserActions([
           ["AddRecord", RUNS_TABLE_ID, null, {
@@ -832,10 +1147,11 @@
             WARNINGS: JSON.stringify({
               generation_warnings: generationResult.warnings || [],
               qa_issues: qaResult.issues || [],
-              unsupported_claims: qaResult.unsupported_claims || []
+              unsupported_claims: qaResult.unsupported_claims || [],
+              html_attachment_summary: attachmentSummary
             }, null, 2),
             PROMPT_SENT: currentRecord.AI_PROMPT || "",
-            HTML_URLS_SENT: currentRecord.SOURCE_URLS || "",
+            HTML_URLS_SENT: [currentRecord.SOURCE_URLS || "", attachmentSummary].filter(Boolean).join("\n\n"),
             SOURCE_FINGERPRINT: currentRecord.SOURCE_FINGERPRINT || "",
             RUN_STATUS: qaResult.publish_recommendation || "review",
             ACTION: userRevisionComment ? "Rerun after rejection" : "Generated",
@@ -848,6 +1164,23 @@
       } catch (err) {
         console.warn("Could not log AI run. Continuing.", err);
       }
+    }
+
+    function formatAttachmentSummaryForLog(attachments) {
+      if (!attachments || !attachments.length) return "No related HTML attachments found.";
+
+      return attachments.map((att, index) => {
+        return [
+          `Attachment ${index + 1}`,
+          `HTML row ID: ${att.html_row_id}`,
+          `Product SKU: ${att.product_sku}`,
+          `URL: ${att.url}`,
+          `Response code: ${att.response_code}`,
+          `Attachment ID: ${att.attachment_id}`,
+          `Text chars sent: ${att.text ? att.text.length : 0}`,
+          att.error ? `Error: ${att.error}` : ""
+        ].filter(Boolean).join(" | ");
+      }).join("\n");
     }
 
     function renderQa(qa) {
