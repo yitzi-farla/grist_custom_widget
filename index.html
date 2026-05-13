@@ -1055,7 +1055,6 @@
           [outputFields.warnings]: Array.isArray(result.warnings)
             ? result.warnings.join("\n")
             : String(result.warnings || ""),
-          AI_STATUS: `Generated + QA ${score}/100 (${recommendation})`,
           REVIEW_STATUS: recommendation === "publish" && score >= 90
             ? "AI Ready for Approval"
             : "Needs Human Review"
@@ -1086,7 +1085,6 @@
         ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
           REJECT_MESSAGE: comment,
           REVIEW_STATUS: "Rejected - Rerun Requested",
-          AI_STATUS: "Rejected by human reviewer"
         }]
       ]);
     }
@@ -1108,7 +1106,6 @@
         await grist.docApi.applyUserActions([
           ["UpdateRecord", PRODUCT_TABLE_ID, currentRecord.id, {
             REVIEW_STATUS: "Approved",
-            AI_STATUS: `Approved after QA ${latestQa.trust_score}/100`,
             REJECT_MESSAGE: ""
           }]
         ]);
