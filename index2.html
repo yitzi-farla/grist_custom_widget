@@ -185,7 +185,7 @@
 
 <body>
   <div class="topbar">
-    <h2>OpenRouter Product Enrichment <span class="version-badge">v11-no-formula-writes-2026-05-13</span></h2>
+    <h2>OpenRouter Product Enrichment <span class="version-badge">v12-parent-spec-pdf-link-checks-2026-05-13</span></h2>
 
     <div class="row">
       <button id="reloadBtn">Reload Rows</button>
@@ -194,7 +194,7 @@
       <span id="position" class="muted">No rows loaded</span>
     </div>
 
-    <div id="status" class="status">Loading v11-no-formula-writes-2026-05-13...</div>
+    <div id="status" class="status">Loading v12-parent-spec-pdf-link-checks-2026-05-13...</div>
   </div>
 
   <div class="card">
@@ -311,7 +311,7 @@
   </div>
 
   <script>
-    const WIDGET_VERSION = "v11-no-formula-writes-2026-05-13";
+    const WIDGET_VERSION = "v12-parent-spec-pdf-link-checks-2026-05-13";
     const PRODUCT_TABLE_ID = "Naneth_AI_Review";
     const HTML_TABLE_ID = "Naneth_HTML";
     const RUNS_TABLE_ID = "Naneth_AI_Runs";
@@ -683,7 +683,7 @@
               continue;
             }
 
-            const rawReadableText = await readAttachmentAsText(attachmentId);
+            const rawReadableText = await readAttachmentAsText(attachmentId, row.URL || "");
             const remainingChars = Math.max(0, MAX_TOTAL_HTML_CHARS - totalChars);
             const text = trimForPrompt(rawReadableText, Math.min(MAX_HTML_CHARS_PER_ATTACHMENT, remainingChars));
             totalChars += text.length;
@@ -799,7 +799,7 @@
       return [];
     }
 
-    async function readAttachmentAsText(attachmentId) {
+    async function readAttachmentAsText(attachmentId, sourcePageUrl) {
       if (!grist.docApi.getAttachmentUrl) {
         throw new Error("grist.docApi.getAttachmentUrl is not available in this Grist widget API version.");
       }
@@ -812,10 +812,10 @@
       }
 
       const rawText = await response.text();
-      return htmlToReadableText(rawText);
+      return htmlToReadableText(rawText, sourcePageUrl);
     }
 
-    function htmlToReadableText(html) {
+    function htmlToReadableText(html, sourcePageUrl) {
       const raw = String(html || "");
 
       try {
@@ -829,10 +829,14 @@
         const h1 = doc.querySelector("h1")?.textContent || "";
         const bodyText = doc.body ? doc.body.innerText : doc.documentElement.innerText;
 
+        const pdfLinks = extractPdfLinksFromDocument(doc, sourcePageUrl);
+        const pdfLinkText = formatPdfLinksForPrompt(pdfLinks);
+
         return [
           title ? `HTML title: ${cleanWhitespace(title)}` : "",
           metaDescription ? `Meta description: ${cleanWhitespace(metaDescription)}` : "",
           h1 ? `H1: ${cleanWhitespace(h1)}` : "",
+          pdfLinkText,
           cleanWhitespace(bodyText || raw)
         ]
           .filter(Boolean)
@@ -842,6 +846,56 @@
       } catch (err) {
         return cleanWhitespace(raw);
       }
+    }
+
+    function extractPdfLinksFromDocument(doc, sourcePageUrl) {
+      const links = [];
+
+      doc.querySelectorAll("a[href]").forEach(anchor => {
+        const href = String(anchor.getAttribute("href") || "").trim();
+        const text = cleanWhitespace(anchor.textContent || anchor.getAttribute("title") || anchor.getAttribute("aria-label") || "");
+
+        if (!href) return;
+
+        const lowerHref = href.toLowerCase();
+        const lowerText = text.toLowerCase();
+        const looksLikePdf = lowerHref.includes(".pdf") || lowerText.includes("pdf") || lowerText.includes("brochure") || lowerText.includes("ifu") || lowerText.includes("instructions") || lowerText.includes("manual") || lowerText.includes("datasheet") || lowerText.includes("data sheet");
+
+        if (!looksLikePdf) return;
+
+        links.push({
+          text: text || "[no link text]",
+          url: absolutizeUrl(href, sourcePageUrl),
+          raw_href: href
+        });
+      });
+
+      const seen = new Set();
+      return links.filter(link => {
+        const key = link.url || link.raw_href;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, 30);
+    }
+
+    function absolutizeUrl(href, sourcePageUrl) {
+      try {
+        if (sourcePageUrl) return new URL(href, sourcePageUrl).href;
+        return new URL(href).href;
+      } catch (err) {
+        return href;
+      }
+    }
+
+    function formatPdfLinksForPrompt(pdfLinks) {
+      if (!pdfLinks || !pdfLinks.length) return "";
+
+      return [
+        "PDF/DOCUMENT LINKS FOUND ON SOURCE PAGE:",
+        "The AI must decide whether each PDF/document link appears to match this product family before using it as evidence or adding it to sources. Do not include unrelated PDFs in sources.",
+        ...pdfLinks.map((link, index) => `${index + 1}. Text: ${link.text}\n   URL: ${link.url}`)
+      ].join("\n");
     }
 
     function cleanWhitespace(text) {
@@ -935,6 +989,19 @@
               "Use the field name bullet_features, not bullets. " +
               "Use related HTML attachment text as source evidence when provided. " +
               "Prefer manufacturer evidence over supplier evidence. " +
+              "If source pages contain PDF, IFU, brochure, manual, data sheet, or instructions links, inspect their link text and URLs from the supplied HTML evidence and decide whether they appear to match this exact product family before using them. " +
+              "Only include matching PDF/document URLs in sources when they clearly relate to the product family, manufacturer, SKU, or product name. Do not include generic, unrelated, or ambiguous PDFs as sources; mention ambiguous potentially relevant PDFs in warnings instead. " +
+
+              "CRITICAL PARENT-LEVEL RULES: " +
+              "You are writing parent-level ecommerce copy only. " +
+              "Do not put variant-specific sizes, diameters, colours, pack sizes, fits, UOMs, kit options, SKUs, option values, or option labels into product_name, long_description, bullet_features, or specs. " +
+              "If the source contains a variant table, size list, option matrix, SKU list, pricing list, or product option table, use it only to understand the product family; do not copy those values into parent-level specs. " +
+              "Do not create specs like 'Size 1', 'Variant 2', 'Ring/Folding 0', numbered size rows, diameter rows, SKU rows, or any list of variant options. " +
+              "Specs must be a short object of parent-level attributes only. Good examples: Product type, Material, Manufacturer, Brand, Configuration, Compatible strip type, Power source, Memory, or general construction, but only when clearly supported and applying to the whole parent product family. " +
+              "If no parent-level specs are clearly supported, return an empty specs object {}. " +
+              "If variant-specific information was excluded, add a warning explaining that variant-level size/option data was excluded from parent-level copy. " +
+              "If a size, diameter, colour, pack size, UOM, kit option, or SKU applies only to some variants, it belongs outside parent copy and must not be included in specs. " +
+
               "Do not invent certifications, compliance claims, dimensions, materials, medical use claims, CE claims, sterile claims, antimicrobial claims, recyclable claims, or regulatory claims. " +
               "If unsure, add the concern to warnings. " +
               "Write parent-level product copy only."
@@ -994,6 +1061,11 @@
               "Score 90-100 very trustworthy, 70-89 mostly trustworthy, 50-69 needs review, 25-49 risky, 0-24 reject.\n\n" +
               "Check unsupported medical, clinical, CE, sterile, infection-control, antimicrobial, recyclable, or regulatory claims. " +
               "Check variant-specific details leaked into parent copy. Check unsupported bullets/specs/sources.\n\n" +
+              "Check any PDF/document links found in the HTML evidence. Verify whether each PDF/document source included by the generation appears to match the product family, manufacturer, SKU, or product name. Penalise irrelevant or ambiguous PDF/document sources. If a relevant-looking PDF was found but not used, mention it in issues or source_checks. " +
+              "Reject or heavily penalise the output if specs contain variant-specific sizes, diameters, colours, pack sizes, kit options, UOMs, SKUs, option labels, numbered option rows, or a variant matrix. " +
+              "Parent-level specs must only include attributes that apply to the entire product family. " +
+              "If specs are mostly variant options, trust_score must be below 70 and publish_recommendation must be review or reject. " +
+              "If the generated output copied a size table into specs, mark this as a high severity specs issue and provide recommended_changes.specs with only true parent-level specs or an empty object. " +
               "Human revision comment if any:\n" +
               (userRevisionComment || "") +
               "\n\nOriginal AI prompt:\n" +
