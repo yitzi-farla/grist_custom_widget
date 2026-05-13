@@ -17,6 +17,18 @@
       margin: 0 0 8px;
     }
 
+    .version-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #111827;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
     .topbar {
       position: sticky;
       top: 0;
@@ -173,7 +185,7 @@
 
 <body>
   <div class="topbar">
-    <h2>OpenRouter Product Enrichment</h2>
+    <h2>OpenRouter Product Enrichment <span class="version-badge">v11-no-formula-writes-2026-05-13</span></h2>
 
     <div class="row">
       <button id="reloadBtn">Reload Rows</button>
@@ -182,7 +194,7 @@
       <span id="position" class="muted">No rows loaded</span>
     </div>
 
-    <div id="status" class="status">Loading...</div>
+    <div id="status" class="status">Loading v11-no-formula-writes-2026-05-13...</div>
   </div>
 
   <div class="card">
@@ -299,6 +311,7 @@
   </div>
 
   <script>
+    const WIDGET_VERSION = "v11-no-formula-writes-2026-05-13";
     const PRODUCT_TABLE_ID = "Naneth_AI_Review";
     const HTML_TABLE_ID = "Naneth_HTML";
     const RUNS_TABLE_ID = "Naneth_AI_Runs";
