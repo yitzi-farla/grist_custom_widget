@@ -5,48 +5,180 @@
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
   <style>
     body {
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       padding: 12px;
       font-size: 14px;
+      color: #222;
     }
+
+    h2, h3 {
+      margin: 0 0 8px;
+    }
+
+    .section {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .muted {
+      color: #666;
+    }
+
+    .status {
+      padding: 8px 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: #f5f5f5;
+    }
+
+    .ok {
+      background: #e7f6ec;
+      color: #0a6b2b;
+    }
+
+    .warn {
+      background: #fff7df;
+      color: #7a5600;
+    }
+
+    .error {
+      background: #fdecec;
+      color: #a40000;
+    }
+
     button {
       padding: 8px 12px;
-      cursor: pointer;
       border-radius: 6px;
-      border: 1px solid #ccc;
+      border: 1px solid #bbb;
       background: #f7f7f7;
+      cursor: pointer;
+      margin-right: 6px;
+      margin-bottom: 6px;
     }
+
+    button.primary {
+      background: #1f6feb;
+      color: white;
+      border-color: #1f6feb;
+    }
+
+    button.danger {
+      background: #b42318;
+      color: white;
+      border-color: #b42318;
+    }
+
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
+
+    textarea {
+      width: 100%;
+      min-height: 80px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 8px;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
     pre {
       white-space: pre-wrap;
-      background: #f5f5f5;
-      padding: 10px;
+      word-break: break-word;
+      background: #f6f8fa;
       border-radius: 6px;
-      max-height: 280px;
+      padding: 10px;
+      max-height: 360px;
       overflow: auto;
     }
-    .error {
-      color: #b00020;
+
+    .grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 6px 10px;
     }
-    .ok {
-      color: #0a7a2f;
+
+    .label {
+      font-weight: 600;
+      color: #555;
+    }
+
+    .score {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    ul {
+      margin-top: 6px;
+      padding-left: 20px;
+    }
+
+    a {
+      color: #1f6feb;
     }
   </style>
 </head>
+
 <body>
-  <h3>OpenRouter Product Enrichment</h3>
+  <h2>OpenRouter Product Enrichment</h2>
 
-  <button id="runBtn">Generate AI Content</button>
+  <div id="status" class="status">Loading...</div>
 
-  <p id="status"></p>
-  <pre id="output"></pre>
+  <div class="section">
+    <h3>Selected Product</h3>
+    <div class="grid">
+      <div class="label">Group SKU</div>
+      <div id="groupSku" class="muted">-</div>
+
+      <div class="label">Product</div>
+      <div id="productLabel" class="muted">-</div>
+
+      <div class="label">Review Status</div>
+      <div id="reviewStatus" class="muted">-</div>
+
+      <div class="label">AI Status</div>
+      <div id="aiStatus" class="muted">-</div>
+
+      <div class="label">Variants</div>
+      <div id="variants" class="muted">-</div>
+
+      <div class="label">Sources</div>
+      <div id="sources" class="muted">-</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Actions</h3>
+    <button id="generateBtn" class="primary">Generate + QA Check</button>
+    <button id="approveBtn">Approve Result</button>
+    <button id="denyBtn" class="danger">Deny + Rerun With Comment</button>
+
+    <p class="muted">
+      If denying, enter what is wrong or what the AI should change. The widget will resend the previous output, QA result, and your comment back to AI.
+    </p>
+
+    <textarea id="denyComment" placeholder="Example: Product name is too specific. Remove unsupported accuracy claim. Make bullets less medical."></textarea>
+  </div>
+
+  <div class="section">
+    <h3>Generated Output</h3>
+    <pre id="generationOutput">No generation yet.</pre>
+  </div>
+
+  <div class="section">
+    <h3>QA / Trust Check</h3>
+    <div id="qaSummary" class="muted">No QA result yet.</div>
+    <pre id="qaOutput">No QA result yet.</pre>
+  </div>
 
   <script>
-    let currentRecord = null;
-
+    const PRODUCT_TABLE_ID = "Naneth_AI_Review";
+    const RUNS_TABLE_ID = "Naneth_AI_Runs";
     const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
     const outputFields = {
@@ -58,60 +190,163 @@
       warnings: "FINAL_WARNINGS"
     };
 
+    let currentRecord = null;
+    let latestGeneration = null;
+    let latestQa = null;
+    let latestRunRowId = null;
+
     grist.ready({
       requiredAccess: "full"
     });
 
     grist.onRecord(function(record) {
       currentRecord = record;
-      setStatus(record ? "Ready." : "Select a product row.", "ok");
-      document.getElementById("output").textContent = record
-        ? JSON.stringify(record, null, 2)
-        : "";
+      latestGeneration = null;
+      latestQa = null;
+      latestRunRowId = null;
+
+      renderSelectedRecord(record);
+
+      if (record) {
+        setStatus("Ready.", "ok");
+      } else {
+        setStatus("Select a product row.", "warn");
+      }
     });
 
-    document.getElementById("runBtn").addEventListener("click", async function() {
-      if (!currentRecord) {
-        setStatus("No selected row.", "error");
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+      await runFullAiFlow("");
+    });
+
+    document.getElementById("denyBtn").addEventListener("click", async () => {
+      const comment = document.getElementById("denyComment").value.trim();
+
+      if (!comment) {
+        setStatus("Add a denial/revision comment before rerunning.", "warn");
         return;
       }
 
-      const button = document.getElementById("runBtn");
-      button.disabled = true;
+      await saveRejectMessage(comment);
+      await runFullAiFlow(comment);
+    });
+
+    document.getElementById("approveBtn").addEventListener("click", async () => {
+      await approveCurrentResult();
+    });
+
+    function renderSelectedRecord(record) {
+      if (!record) {
+        document.getElementById("groupSku").textContent = "-";
+        document.getElementById("productLabel").textContent = "-";
+        document.getElementById("reviewStatus").textContent = "-";
+        document.getElementById("aiStatus").textContent = "-";
+        document.getElementById("variants").textContent = "-";
+        document.getElementById("sources").textContent = "-";
+        return;
+      }
+
+      document.getElementById("groupSku").textContent = record.GROUP_SKU || "-";
+      document.getElementById("productLabel").textContent =
+        record.PARENT_LABEL || record.PRODUCT_INFO || "-";
+      document.getElementById("reviewStatus").textContent = record.REVIEW_STATUS || "-";
+      document.getElementById("aiStatus").textContent = record.AI_STATUS || "-";
+
+      const variantsText =
+        record.VARIANT_SKUS ||
+        record.SUBVARIANT_SKUS ||
+        "";
+
+      document.getElementById("variants").innerHTML = textLinesToHtml(variantsText);
+
+      const sourceUrls = String(record.SOURCE_URLS || "")
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      document.getElementById("sources").innerHTML = sourceUrls.length
+        ? sourceUrls.map(url => `<div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a></div>`).join("")
+        : "-";
+
+      document.getElementById("generationOutput").textContent = "No generation yet.";
+      document.getElementById("qaSummary").textContent = "No QA result yet.";
+      document.getElementById("qaOutput").textContent = "No QA result yet.";
+    }
+
+    async function runFullAiFlow(userRevisionComment) {
+      if (!currentRecord) {
+        setStatus("No selected product row.", "error");
+        return;
+      }
+
+      setButtonsDisabled(true);
 
       try {
-        setStatus("Reading Env table...", "");
-
         const env = await loadEnv();
         const apiKey = env.OPENROUTER_API_KEY;
-        const model = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+        const generationModel = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+        const qaModel = env.OPENROUTER_QA_MODEL || env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
         if (!apiKey) {
           throw new Error("Missing OPENROUTER_API_KEY in Env table.");
         }
 
-        setStatus("Calling OpenRouter...", "");
+        setStatus("Running initial AI generation...", "warn");
 
-        const result = await enrichProductWithOpenRouter({
+        latestGeneration = await runGenerationRequest({
           apiKey,
-          model,
-          productRecord: currentRecord
+          model: generationModel,
+          productRecord: currentRecord,
+          userRevisionComment,
+          previousGeneration: latestGeneration,
+          previousQa: latestQa,
+          env
         });
 
-        setStatus("Writing result back to Grist...", "");
+        document.getElementById("generationOutput").textContent =
+          JSON.stringify(latestGeneration, null, 2);
 
-        await writeResultToCurrentRow(currentRecord.id, result);
+        setStatus("Running QA / source verification check...", "warn");
 
-        setStatus("Done.", "ok");
-        document.getElementById("output").textContent = JSON.stringify(result, null, 2);
+        latestQa = await runQaRequest({
+          apiKey,
+          model: qaModel,
+          productRecord: currentRecord,
+          generationResult: latestGeneration,
+          userRevisionComment,
+          env
+        });
+
+        renderQa(latestQa);
+
+        setStatus("Writing AI output and QA result back to Grist...", "warn");
+
+        await writeGenerationToReviewRow(latestGeneration, latestQa);
+        await logAiRun({
+          generationModel,
+          qaModel,
+          generationResult: latestGeneration,
+          qaResult: latestQa,
+          userRevisionComment
+        });
+
+        const score = Number(latestQa.trust_score || 0);
+        const recommendation = latestQa.publish_recommendation || "review";
+
+        if (recommendation === "publish" && score >= 90) {
+          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: publish.`, "ok");
+        } else if (recommendation === "reject" || score < 50) {
+          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: reject.`, "error");
+        } else {
+          setStatus(`Generated and QA checked. Trust score ${score}/100. Recommended: review.`, "warn");
+        }
 
       } catch (err) {
         console.error(err);
         setStatus(err.message || String(err), "error");
       } finally {
-        button.disabled = false;
+        setButtonsDisabled(false);
       }
-    });
+    }
 
     async function loadEnv() {
       const table = await grist.docApi.fetchTable("Env");
@@ -131,7 +366,31 @@
       return env;
     }
 
-    async function enrichProductWithOpenRouter({ apiKey, model, productRecord }) {
+    async function runGenerationRequest({
+      apiKey,
+      model,
+      productRecord,
+      userRevisionComment,
+      previousGeneration,
+      previousQa,
+      env
+    }) {
+      const basePrompt = productRecord.AI_PROMPT || "";
+
+      let revisionBlock = "";
+
+      if (userRevisionComment) {
+        revisionBlock =
+          "\n\nHUMAN REVIEWER DENIED THE PREVIOUS OUTPUT.\n" +
+          "Reviewer comment:\n" +
+          userRevisionComment +
+          "\n\nPrevious generated output:\n" +
+          JSON.stringify(previousGeneration || {}, null, 2) +
+          "\n\nPrevious QA result:\n" +
+          JSON.stringify(previousQa || {}, null, 2) +
+          "\n\nRevise the output to address the reviewer comment and QA issues.";
+      }
+
       const payload = {
         model,
         temperature: 0.2,
@@ -141,14 +400,27 @@
             content:
               "You are an ecommerce product enrichment assistant for a UK healthcare/medical supplies retailer. " +
               "Return only valid JSON matching the schema. " +
-              "Do not invent certifications, compliance claims, dimensions, materials, or medical use claims. " +
-              "If unsure, put concerns in warnings."
+              "Use the field name bullet_features, not bullets. " +
+              "Do not invent certifications, compliance claims, dimensions, materials, medical use claims, CE claims, sterile claims, antimicrobial claims, recyclable claims, or regulatory claims. " +
+              "If unsure, add the concern to warnings. " +
+              "Write parent-level product copy only."
           },
           {
             role: "user",
             content:
-              "Create product content from this product row JSON:\n\n" +
-              JSON.stringify(productRecord, null, 2)
+              basePrompt +
+              revisionBlock +
+              "\n\nAdditional product/source context JSON:\n" +
+              JSON.stringify({
+                GROUP_SKU: productRecord.GROUP_SKU,
+                PARENT_LABEL: productRecord.PARENT_LABEL,
+                PRODUCT_INFO: productRecord.PRODUCT_INFO,
+                VARIANT_SKUS: productRecord.VARIANT_SKUS,
+                SUBVARIANT_SKUS: productRecord.SUBVARIANT_SKUS,
+                SOURCE_URLS: productRecord.SOURCE_URLS,
+                NANETH_RESEARCH_DATA: productRecord.NANETH_RESEARCH_DATA,
+                HTML_STATUS: productRecord.HTML_STATUS
+              }, null, 2)
           }
         ],
         response_format: {
@@ -204,13 +476,283 @@
         }
       };
 
+      const responseJson = await callOpenRouter({
+        apiKey,
+        payload,
+        env,
+        label: "generation"
+      });
+
+      return parseOpenRouterContent(responseJson);
+    }
+
+    async function runQaRequest({
+      apiKey,
+      model,
+      productRecord,
+      generationResult,
+      userRevisionComment,
+      env
+    }) {
+      const payload = {
+        model,
+        temperature: 0,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a strict ecommerce medical product content QA reviewer. " +
+              "You verify AI-generated ecommerce product content against supplied product data and source evidence. " +
+              "Return only valid JSON matching the schema. Be strict. If a claim is not clearly supported, flag it."
+          },
+          {
+            role: "user",
+            content:
+              "Review this generated product content against the supplied evidence.\n\n" +
+              "SCORING:\n" +
+              "90-100 = Very trustworthy. Minor wording issues only.\n" +
+              "70-89 = Mostly trustworthy. Minor unsupported wording or clarity issues.\n" +
+              "50-69 = Needs human review. Questionable claims, missing warnings, or weak support.\n" +
+              "25-49 = Risky. Multiple unsupported claims or source mismatch.\n" +
+              "0-24 = Do not publish. Major hallucination, wrong product, or unsafe claims.\n\n" +
+              "CHECK FOR:\n" +
+              "- unsupported medical, clinical, CE, sterile, infection-control, antimicrobial, recyclable, or regulatory claims\n" +
+              "- variant-specific details leaked into parent-level copy\n" +
+              "- unsupported product name changes\n" +
+              "- unsupported bullet features or specs\n" +
+              "- irrelevant or weak sources\n" +
+              "- missing warnings\n\n" +
+              "HUMAN REVISION COMMENT, IF ANY:\n" +
+              (userRevisionComment || "") +
+              "\n\nORIGINAL AI PROMPT:\n" +
+              (productRecord.AI_PROMPT || "") +
+              "\n\nPRODUCT INFO:\n" +
+              (productRecord.PRODUCT_INFO || "") +
+              "\n\nNANETH RESEARCH DATA:\n" +
+              (productRecord.NANETH_RESEARCH_DATA || "") +
+              "\n\nSOURCE URLS:\n" +
+              (productRecord.SOURCE_URLS || "") +
+              "\n\nAI GENERATED OUTPUT:\n" +
+              JSON.stringify(generationResult, null, 2)
+          }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "product_content_qa",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                trust_score: {
+                  type: "number"
+                },
+                publish_recommendation: {
+                  type: "string",
+                  enum: ["publish", "review", "reject"]
+                },
+                summary: {
+                  type: "string"
+                },
+                issues: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      severity: {
+                        type: "string",
+                        enum: ["low", "medium", "high"]
+                      },
+                      field: {
+                        type: "string",
+                        enum: [
+                          "product_name",
+                          "long_description",
+                          "bullet_features",
+                          "specs",
+                          "sources",
+                          "warnings",
+                          "general"
+                        ]
+                      },
+                      issue: {
+                        type: "string"
+                      },
+                      evidence: {
+                        type: "string"
+                      },
+                      suggested_fix: {
+                        type: "string"
+                      }
+                    },
+                    required: [
+                      "severity",
+                      "field",
+                      "issue",
+                      "evidence",
+                      "suggested_fix"
+                    ],
+                    additionalProperties: false
+                  }
+                },
+                unsupported_claims: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      claim: {
+                        type: "string"
+                      },
+                      why_unsupported: {
+                        type: "string"
+                      }
+                    },
+                    required: [
+                      "claim",
+                      "why_unsupported"
+                    ],
+                    additionalProperties: false
+                  }
+                },
+                source_checks: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      source: {
+                        type: "string"
+                      },
+                      relevance: {
+                        type: "string",
+                        enum: ["high", "medium", "low", "unknown"]
+                      },
+                      notes: {
+                        type: "string"
+                      }
+                    },
+                    required: [
+                      "source",
+                      "relevance",
+                      "notes"
+                    ],
+                    additionalProperties: false
+                  }
+                },
+                field_scores: {
+                  type: "object",
+                  properties: {
+                    product_name: {
+                      type: "number"
+                    },
+                    long_description: {
+                      type: "number"
+                    },
+                    bullet_features: {
+                      type: "number"
+                    },
+                    specs: {
+                      type: "number"
+                    },
+                    sources: {
+                      type: "number"
+                    },
+                    warnings: {
+                      type: "number"
+                    }
+                  },
+                  required: [
+                    "product_name",
+                    "long_description",
+                    "bullet_features",
+                    "specs",
+                    "sources",
+                    "warnings"
+                  ],
+                  additionalProperties: false
+                },
+                safe_to_publish: {
+                  type: "boolean"
+                },
+                recommended_changes: {
+                  type: "object",
+                  properties: {
+                    product_name: {
+                      type: "string"
+                    },
+                    long_description: {
+                      type: "string"
+                    },
+                    bullet_features: {
+                      type: "array",
+                      items: {
+                        type: "string"
+                      }
+                    },
+                    specs: {
+                      type: "object",
+                      additionalProperties: {
+                        type: "string"
+                      }
+                    },
+                    sources: {
+                      type: "array",
+                      items: {
+                        type: "string"
+                      }
+                    },
+                    warnings: {
+                      type: "array",
+                      items: {
+                        type: "string"
+                      }
+                    }
+                  },
+                  required: [
+                    "product_name",
+                    "long_description",
+                    "bullet_features",
+                    "specs",
+                    "sources",
+                    "warnings"
+                  ],
+                  additionalProperties: false
+                }
+              },
+              required: [
+                "trust_score",
+                "publish_recommendation",
+                "summary",
+                "issues",
+                "unsupported_claims",
+                "source_checks",
+                "field_scores",
+                "safe_to_publish",
+                "recommended_changes"
+              ],
+              additionalProperties: false
+            }
+          }
+        }
+      };
+
+      const responseJson = await callOpenRouter({
+        apiKey,
+        payload,
+        env,
+        label: "QA"
+      });
+
+      return parseOpenRouterContent(responseJson);
+    }
+
+    async function callOpenRouter({ apiKey, payload, env, label }) {
       const response = await fetch(OPENROUTER_URL, {
         method: "POST",
         headers: {
           "Authorization": "Bearer " + apiKey,
           "Content-Type": "application/json",
-          "HTTP-Referer": "https://farla.co.uk",
-          "X-Title": "Farla Product Enrichment"
+          "HTTP-Referer": env.OPENROUTER_HTTP_REFERER || "https://farla.co.uk",
+          "X-Title": env.OPENROUTER_X_TITLE || "Farla Product Enrichment"
         },
         body: JSON.stringify(payload)
       });
@@ -219,14 +761,15 @@
 
       if (!response.ok) {
         throw new Error(
-          "OpenRouter error: " + JSON.stringify(responseJson, null, 2)
+          "OpenRouter " + label + " error: " +
+          JSON.stringify(responseJson, null, 2)
         );
       }
 
-      return parseOpenRouterResponse(responseJson);
+      return responseJson;
     }
 
-    function parseOpenRouterResponse(responseJson) {
+    function parseOpenRouterContent(responseJson) {
       const content = responseJson?.choices?.[0]?.message?.content;
 
       if (!content) {
@@ -236,48 +779,224 @@
         );
       }
 
-      const parsed = typeof content === "string"
-        ? JSON.parse(content)
-        : content;
-
-      const required = [
-        "product_name",
-        "long_description",
-        "bullet_features",
-        "specs",
-        "sources",
-        "warnings"
-      ];
-
-      for (const key of required) {
-        if (!(key in parsed)) {
-          throw new Error("Missing required field from AI response: " + key);
-        }
-      }
-
-      return parsed;
+      return typeof content === "string" ? JSON.parse(content) : content;
     }
 
-    async function writeResultToCurrentRow(rowId, result) {
-      const table = grist.getTable();
+    function renderQa(qa) {
+      const score = Number(qa.trust_score || 0);
+      const recommendation = qa.publish_recommendation || "review";
+      const safe = qa.safe_to_publish ? "Yes" : "No";
 
-      await table.update({
-        id: rowId,
-        fields: {
-          [outputFields.product_name]: result.product_name,
-          [outputFields.long_description]: result.long_description,
-          [outputFields.bullet_features]: result.bullet_features.join("\n"),
-          [outputFields.specs]: JSON.stringify(result.specs, null, 2),
-          [outputFields.sources]: result.sources.join("\n"),
-          [outputFields.warnings]: result.warnings.join("\n")
+      document.getElementById("qaSummary").innerHTML =
+        `<div class="score">${score}/100</div>` +
+        `<div><strong>Recommendation:</strong> ${escapeHtml(recommendation)}</div>` +
+        `<div><strong>Safe to publish:</strong> ${escapeHtml(safe)}</div>` +
+        `<div><strong>Summary:</strong> ${escapeHtml(qa.summary || "")}</div>`;
+
+      document.getElementById("qaOutput").textContent = JSON.stringify(qa, null, 2);
+    }
+
+    async function writeGenerationToReviewRow(result, qa) {
+      const score = Number(qa.trust_score || 0);
+      const recommendation = qa.publish_recommendation || "review";
+
+      await grist.docApi.applyUserActions([
+        [
+          "UpdateRecord",
+          PRODUCT_TABLE_ID,
+          currentRecord.id,
+          {
+            [outputFields.product_name]: result.product_name || "",
+            [outputFields.long_description]: result.long_description || "",
+            [outputFields.bullet_features]: Array.isArray(result.bullet_features)
+              ? result.bullet_features.join("\n")
+              : String(result.bullet_features || ""),
+            [outputFields.specs]: typeof result.specs === "string"
+              ? result.specs
+              : JSON.stringify(result.specs || {}, null, 2),
+            [outputFields.sources]: Array.isArray(result.sources)
+              ? result.sources.join("\n")
+              : String(result.sources || ""),
+            [outputFields.warnings]: Array.isArray(result.warnings)
+              ? result.warnings.join("\n")
+              : String(result.warnings || ""),
+            AI_STATUS: `Generated + QA ${score}/100 (${recommendation})`,
+            REVIEW_STATUS: recommendation === "publish" && score >= 90
+              ? "AI Ready for Approval"
+              : "Needs Human Review"
+          }
+        ]
+      ]);
+    }
+
+    async function saveRejectMessage(comment) {
+      if (!currentRecord) return;
+
+      await grist.docApi.applyUserActions([
+        [
+          "UpdateRecord",
+          PRODUCT_TABLE_ID,
+          currentRecord.id,
+          {
+            REJECT_MESSAGE: comment,
+            REVIEW_STATUS: "Rejected - Rerun Requested",
+            AI_STATUS: "Rejected by human reviewer"
+          }
+        ]
+      ]);
+    }
+
+    async function approveCurrentResult() {
+      if (!currentRecord) {
+        setStatus("No selected product row.", "error");
+        return;
+      }
+
+      if (!latestGeneration || !latestQa) {
+        setStatus("Generate and QA-check a result before approving.", "warn");
+        return;
+      }
+
+      setButtonsDisabled(true);
+
+      try {
+        await grist.docApi.applyUserActions([
+          [
+            "UpdateRecord",
+            PRODUCT_TABLE_ID,
+            currentRecord.id,
+            {
+              REVIEW_STATUS: "Approved",
+              AI_STATUS: `Approved after QA ${latestQa.trust_score}/100`,
+              REJECT_MESSAGE: ""
+            }
+          ]
+        ]);
+
+        if (latestRunRowId) {
+          await grist.docApi.applyUserActions([
+            [
+              "UpdateRecord",
+              RUNS_TABLE_ID,
+              latestRunRowId,
+              {
+                APPROVED: true,
+                ACTION: "Approved",
+                RUN_STATUS: "Approved"
+              }
+            ]
+          ]);
         }
-      });
+
+        setStatus("Approved.", "ok");
+
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      } finally {
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function logAiRun({
+      generationModel,
+      qaModel,
+      generationResult,
+      qaResult,
+      userRevisionComment
+    }) {
+      try {
+        const finalJson = {
+          generation: generationResult,
+          qa: qaResult
+        };
+
+        const createdAt = Math.floor(Date.now() / 1000);
+
+        const actions = [
+          [
+            "AddRecord",
+            RUNS_TABLE_ID,
+            null,
+            {
+              GROUP_SKU: currentRecord.GROUP_SKU || "",
+              CREATED_AT: createdAt,
+              MODEL_1: generationModel,
+              MODEL_1_OUTPUT: JSON.stringify(generationResult, null, 2),
+              MODEL_2: qaModel,
+              MODEL_2_OUTPUT: JSON.stringify(qaResult, null, 2),
+              FINAL_JSON: JSON.stringify(finalJson, null, 2),
+              FINAL_PRODUCT_NAME: generationResult.product_name || "",
+              FINAL_LONG_DESCRIPTION: generationResult.long_description || "",
+              FINAL_BULLETS: Array.isArray(generationResult.bullet_features)
+                ? generationResult.bullet_features.join("\n")
+                : "",
+              FINAL_SPECS: JSON.stringify(generationResult.specs || {}, null, 2),
+              FINAL_SOURCES: Array.isArray(generationResult.sources)
+                ? generationResult.sources.join("\n")
+                : "",
+              FINAL_WARNINGS: [
+                ...(Array.isArray(generationResult.warnings) ? generationResult.warnings : []),
+                qaResult.summary ? "QA: " + qaResult.summary : "",
+                userRevisionComment ? "Human revision comment: " + userRevisionComment : ""
+              ].filter(Boolean).join("\n"),
+              WARNINGS: JSON.stringify({
+                generation_warnings: generationResult.warnings || [],
+                qa_issues: qaResult.issues || [],
+                unsupported_claims: qaResult.unsupported_claims || []
+              }, null, 2),
+              PROMPT_SENT: currentRecord.AI_PROMPT || "",
+              HTML_URLS_SENT: currentRecord.SOURCE_URLS || "",
+              SOURCE_FINGERPRINT: currentRecord.SOURCE_FINGERPRINT || "",
+              RUN_STATUS: qaResult.publish_recommendation || "review",
+              ACTION: userRevisionComment ? "Rerun after rejection" : "Generated",
+              APPROVED: false,
+              HUMAN_NOTES: userRevisionComment || ""
+            }
+          ]
+        ];
+
+        const result = await grist.docApi.applyUserActions(actions);
+
+        if (Array.isArray(result) && result[0]) {
+          latestRunRowId = result[0];
+        }
+
+      } catch (err) {
+        console.warn("Could not log AI run. Continuing.", err);
+      }
     }
 
     function setStatus(message, cls) {
       const el = document.getElementById("status");
       el.textContent = message;
-      el.className = cls || "";
+      el.className = "status " + (cls || "");
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.getElementById("generateBtn").disabled = disabled;
+      document.getElementById("approveBtn").disabled = disabled;
+      document.getElementById("denyBtn").disabled = disabled;
+    }
+
+    function textLinesToHtml(text) {
+      const lines = String(text || "")
+        .split(/\r?\n/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      return lines.length
+        ? lines.map(line => `<div>${escapeHtml(line)}</div>`).join("")
+        : "-";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
   </script>
 </body>
