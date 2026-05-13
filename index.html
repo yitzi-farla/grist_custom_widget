@@ -1,71 +1,284 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Naneth AI Review Widget</title>
   <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
-  <link rel="stylesheet" href="./style.css" />
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 12px;
+      font-size: 14px;
+    }
+    button {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: #f7f7f7;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 6px;
+      max-height: 280px;
+      overflow: auto;
+    }
+    .error {
+      color: #b00020;
+    }
+    .ok {
+      color: #0a7a2f;
+    }
+  </style>
 </head>
 <body>
-  <div id="app">
-    <div class="topbar">
-      <div>
-        <div class="eyebrow">Naneth AI Review</div>
-        <h1 id="title">Select a review row</h1>
-        <div id="meta" class="muted"></div>
-      </div>
-      <div class="actions">
-        <button id="runBtn">Run AI + QA</button>
-        <button id="saveBtn" class="ok">Save</button>
-        <button id="skipBtn">Skip</button>
-        <button id="rejectBtn" class="danger">Reject back to AI</button>
-      </div>
-    </div>
+  <h3>OpenRouter Product Enrichment</h3>
 
-    <section class="panel">
-      <label>Prompt sent to AI</label>
-      <textarea id="prompt" readonly></textarea>
-    </section>
+  <button id="runBtn">Generate AI Content</button>
 
-    <section class="grid">
-      <div class="panel">
-        <label>Parent label</label>
-        <pre id="parentLabel"></pre>
-      </div>
-      <div class="panel">
-        <label>VARPAR / SOLOPAR</label>
-        <pre id="varpar"></pre>
-      </div>
-      <div class="panel">
-        <label>Variant SKUs</label>
-        <pre id="variantSkus"></pre>
-      </div>
-      <div class="panel">
-        <label>Subvariant SKUs</label>
-        <pre id="subvariantSkus"></pre>
-      </div>
-    </section>
+  <p id="status"></p>
+  <pre id="output"></pre>
 
-    <section class="panel">
-      <label>Reject message / instructions back to AI</label>
-      <textarea id="rejectMessage" placeholder="Tell the model what to fix before pressing Reject back to AI..."></textarea>
-    </section>
+  <script>
+    let currentRecord = null;
 
-    <section class="results">
-      <div class="field"><label>Final product name</label><textarea id="finalProductName"></textarea></div>
-      <div class="field"><label>Final long description</label><textarea id="finalLongDescription"></textarea></div>
-      <div class="field"><label>Final bullets</label><textarea id="finalBullets"></textarea></div>
-      <div class="field"><label>Final specs</label><textarea id="finalSpecs"></textarea></div>
-      <div class="field"><label>Final sources</label><textarea id="finalSources"></textarea></div>
-      <div class="field"><label>Final warnings</label><textarea id="finalWarnings"></textarea></div>
-    </section>
+    const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-    <section class="panel">
-      <label>Log</label>
-      <pre id="log"></pre>
-    </section>
-  </div>
+    const outputFields = {
+      product_name: "product_name",
+      long_description: "long_description",
+      bullet_features: "bullet_features",
+      specs: "specs",
+      sources: "sources",
+      warnings: "warnings"
+    };
 
-  <script src="./widget.js"></script>
+    grist.ready({
+      requiredAccess: "full"
+    });
+
+    grist.onRecord(function(record) {
+      currentRecord = record;
+      setStatus(record ? "Ready." : "Select a product row.", "ok");
+      document.getElementById("output").textContent = record
+        ? JSON.stringify(record, null, 2)
+        : "";
+    });
+
+    document.getElementById("runBtn").addEventListener("click", async function() {
+      if (!currentRecord) {
+        setStatus("No selected row.", "error");
+        return;
+      }
+
+      const button = document.getElementById("runBtn");
+      button.disabled = true;
+
+      try {
+        setStatus("Reading Env table...", "");
+
+        const env = await loadEnv();
+        const apiKey = env.OPENROUTER_API_KEY;
+        const model = env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+
+        if (!apiKey) {
+          throw new Error("Missing OPENROUTER_API_KEY in Env table.");
+        }
+
+        setStatus("Calling OpenRouter...", "");
+
+        const result = await enrichProductWithOpenRouter({
+          apiKey,
+          model,
+          productRecord: currentRecord
+        });
+
+        setStatus("Writing result back to Grist...", "");
+
+        await writeResultToCurrentRow(currentRecord.id, result);
+
+        setStatus("Done.", "ok");
+        document.getElementById("output").textContent = JSON.stringify(result, null, 2);
+
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || String(err), "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    async function loadEnv() {
+      const table = await grist.docApi.fetchTable("Env");
+
+      const env = {};
+      const ids = table.id || [];
+
+      for (let i = 0; i < ids.length; i++) {
+        const key = table.Key?.[i];
+        const value = table.Value?.[i];
+
+        if (key) {
+          env[String(key).trim()] = value;
+        }
+      }
+
+      return env;
+    }
+
+    async function enrichProductWithOpenRouter({ apiKey, model, productRecord }) {
+      const payload = {
+        model,
+        temperature: 0.2,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an ecommerce product enrichment assistant for a UK healthcare/medical supplies retailer. " +
+              "Return only valid JSON matching the schema. " +
+              "Do not invent certifications, compliance claims, dimensions, materials, or medical use claims. " +
+              "If unsure, put concerns in warnings."
+          },
+          {
+            role: "user",
+            content:
+              "Create product content from this product row JSON:\n\n" +
+              JSON.stringify(productRecord, null, 2)
+          }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "product_enrichment",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                product_name: {
+                  type: "string"
+                },
+                long_description: {
+                  type: "string"
+                },
+                bullet_features: {
+                  type: "array",
+                  items: {
+                    type: "string"
+                  }
+                },
+                specs: {
+                  type: "object",
+                  additionalProperties: {
+                    type: "string"
+                  }
+                },
+                sources: {
+                  type: "array",
+                  items: {
+                    type: "string"
+                  }
+                },
+                warnings: {
+                  type: "array",
+                  items: {
+                    type: "string"
+                  }
+                }
+              },
+              required: [
+                "product_name",
+                "long_description",
+                "bullet_features",
+                "specs",
+                "sources",
+                "warnings"
+              ],
+              additionalProperties: false
+            }
+          }
+        }
+      };
+
+      const response = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + apiKey,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://farla.co.uk",
+          "X-Title": "Farla Product Enrichment"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const responseJson = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          "OpenRouter error: " + JSON.stringify(responseJson, null, 2)
+        );
+      }
+
+      return parseOpenRouterResponse(responseJson);
+    }
+
+    function parseOpenRouterResponse(responseJson) {
+      const content = responseJson?.choices?.[0]?.message?.content;
+
+      if (!content) {
+        throw new Error(
+          "Unexpected OpenRouter response shape: " +
+          JSON.stringify(responseJson, null, 2)
+        );
+      }
+
+      const parsed = typeof content === "string"
+        ? JSON.parse(content)
+        : content;
+
+      const required = [
+        "product_name",
+        "long_description",
+        "bullet_features",
+        "specs",
+        "sources",
+        "warnings"
+      ];
+
+      for (const key of required) {
+        if (!(key in parsed)) {
+          throw new Error("Missing required field from AI response: " + key);
+        }
+      }
+
+      return parsed;
+    }
+
+    async function writeResultToCurrentRow(rowId, result) {
+      const table = grist.getTable();
+
+      await table.update({
+        id: rowId,
+        fields: {
+          [outputFields.product_name]: result.product_name,
+          [outputFields.long_description]: result.long_description,
+          [outputFields.bullet_features]: result.bullet_features.join("\n"),
+          [outputFields.specs]: JSON.stringify(result.specs, null, 2),
+          [outputFields.sources]: result.sources.join("\n"),
+          [outputFields.warnings]: result.warnings.join("\n")
+        }
+      });
+    }
+
+    function setStatus(message, cls) {
+      const el = document.getElementById("status");
+      el.textContent = message;
+      el.className = cls || "";
+    }
+  </script>
 </body>
 </html>
